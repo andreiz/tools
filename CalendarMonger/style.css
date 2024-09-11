@@ -1,0 +1,87 @@
+/* styles.css */
+body,
+html {
+  height: auto;
+  min-height: 100%;
+}
+
+.month-container {
+  margin-bottom: 2rem;
+  /* Adds space between the months */
+}
+
+.small-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* 7 columns for days */
+  grid-gap: 0.25rem;
+}
+
+.weekday-label {
+  text-align: center;
+  padding: 0.5rem;
+  background: #e5e7eb;
+  border: none;
+  font-weight: bold;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* 7 columns for 7 days of the week */
+  gap: 1px;
+  /* Gap for the border */
+  background: #ddd;
+  /* Background color for the border */
+}
+
+.calendar-day {
+  background-color: white;
+  min-height: 100px;
+  position: relative;
+}
+
+.day-number {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.small-month .calendar-day {
+  min-height: 50px;
+}
+
+.small-month .day-number {
+  font-size: 0.85rem;
+}
+
+.small-month .weekday-label {
+  font-size: 0.75rem;
+}
+
+.today-highlight {
+  background-color: rgba(219, 234, 254);
+}
+
+.drag-highlight {
+  /*background-color: rgb(212, 237, 224);*/
+  background-color: rgb(224 231 255);
+}
+
+.calendar-day,
+.calendar-day .day-number {
+  user-select: none; /* Prevent text selection */
+}
+
+.selection-count {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: rgb(136, 96, 156);
+}

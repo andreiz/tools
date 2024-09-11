@@ -1,3 +1,3 @@
 # tools
 
-- [Calendar Monger](https://tools.zmievski.org/calendarmonger) quick browsing and highlighting of calendar
+- [Calendar Monger](https://tools.zmievski.org/CalendarMonger) quick browsing and highlighting of calendar

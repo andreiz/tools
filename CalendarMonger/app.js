@@ -1,31 +1,31 @@
-const DateRange = {
-  create: function(start, end, label, color) {
-    return {
-      id: Date.now().toString(), // unique identifier
-      start: parseInt(start),
-      end: parseInt(end),
-      label: label,
-      color: color || this.getRandomPastelColor()
-    };
-  },
-
-  // Generate a random pastel color for range highlighting
-  getRandomPastelColor: function() {
-    const hue = Math.floor(Math.random() * 360);
-    return `hsl(${hue}, 70%, 90%)`;
-  }
-};
-
 document.addEventListener("DOMContentLoaded", () => {
   const monthPicker = document.getElementById("monthPicker");
   const yearPicker = document.getElementById("yearPicker");
   const todayButton = document.getElementById("todayButton");
+  const clearRangesButton = document.getElementById("clearRangesButton");
 
   let isDragging = false;
   let selectionStart = null;
   let selectionEnd = null;
   let firstCell = null;
   let savedRanges = [];
+
+  const DateRange = {
+    create: function(start, end, label, color) {
+      return {
+        id: Date.now().toString(),
+        start: parseInt(start, 10),  // Explicitly use base 10
+        end: parseInt(end, 10),      // Explicitly use base 10
+        label: label,
+        color: color || this.getRandomPastelColor()
+      };
+    },
+  
+    getRandomPastelColor: function() {
+      const hue = Math.floor(Math.random() * 360);
+      return `hsl(${hue}, 70%, 90%)`;
+    }
+  };
 
   // Load saved ranges from localStorage
   function loadSavedRanges() {
@@ -44,18 +44,8 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSavedRanges();
 
   const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -83,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getFirstDayOfMonth = (year, month) => {
     const firstDay = new Date(year, month, 1).getDay();
-    // Convert so that Monday = 0, Sunday = 6
     return firstDay === 0 ? 6 : firstDay - 1;
   };
 
@@ -108,6 +97,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const dayCount = document.createElement("div");
       dayCount.className = "selection-count";
       cell.appendChild(dayCount);
+
+      cell.setAttribute("data-day", day);
     }
     return cell;
   }
@@ -137,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
       saveBtn.addEventListener("click", () => {
         const label = input.value.trim();
         if (label) {
+          console.log('Save button clicked with label:', label);  // Debug log
           modal.remove();
           resolve(label);
         }
@@ -161,24 +153,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  // Function to create weekday labels
-  const createWeekdayLabels = (calendar) => {
-    weekdays.forEach((day) => {
-      const label = document.createElement("div");
-      label.className = "weekday-label";
-      label.textContent = day;
-      calendar.appendChild(label);
-    });
-  };
-
-  const clearCalendar = (calendar) => {
-    calendar.innerHTML = "";
-  };
-
   function updateRangeDisplay() {
-    // Clear all existing highlights and labels
+    console.log('Updating range display with savedRanges:', savedRanges);  // Debug log
+
     document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
       const day = dayCell.dataset.day;
       if (!day) return;
@@ -186,15 +163,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const labelsContainer = dayCell.querySelector(".day-labels");
       labelsContainer.innerHTML = "";
       dayCell.style.backgroundColor = "";
+      dayCell.style.opacity = "1";
 
-      // Find all ranges that include this day
       const matchingRanges = savedRanges.filter(range => 
-        day >= range.start && day <= range.end
+        parseInt(day) >= range.start && parseInt(day) <= range.end
       );
 
-      // Apply highlights and labels
       matchingRanges.forEach(range => {
-        // Only show label on first day of range
         if (parseInt(day) === range.start) {
           const label = document.createElement("div");
           label.className = "range-label";
@@ -202,7 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
           
-          // Add delete button
           const deleteBtn = document.createElement("button");
           deleteBtn.className = "delete-range";
           deleteBtn.innerHTML = "×";
@@ -217,23 +191,97 @@ document.addEventListener("DOMContentLoaded", () => {
           labelsContainer.appendChild(label);
         }
 
-        // Apply highlight with reduced opacity for overlapping ranges
-        const existingColor = dayCell.style.backgroundColor;
-        if (!existingColor) {
-          dayCell.style.backgroundColor = range.color;
-        } else {
-          // If already highlighted, make it slightly darker
-          dayCell.style.backgroundColor = range.color;
+        dayCell.style.backgroundColor = range.color;
+        if (matchingRanges.length > 1) {
           dayCell.style.opacity = "0.8";
         }
       });
     });
   }
 
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const createWeekdayLabels = (calendar) => {
+    weekdays.forEach((day) => {
+      const label = document.createElement("div");
+      label.className = "weekday-label";
+      label.textContent = day;
+      calendar.appendChild(label);
+    });
+  };
+
+  const clearCalendar = (calendar) => {
+    calendar.innerHTML = "";
+  };
+
+  async function finalizeDateRange() {
+    if (selectionStart && selectionEnd) {
+        try {
+            const start = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
+            const end = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
+            
+            const label = await createLabelInput(start, end);
+            
+            const newRange = DateRange.create(start, end, label);
+            console.log('New range created:', newRange); // Debug log to verify values
+            
+            savedRanges.push(newRange);
+            saveRanges();
+            updateRangeDisplay();
+        } catch (e) {
+          // user cancelled
+        }
+    }
+    
+    // Reset selection
+    isDragging = false;
+    selectionStart = null;
+    selectionEnd = null;
+    firstCell = null;
+    document.querySelectorAll(".drag-highlight").forEach(cell => {
+        cell.classList.remove("drag-highlight");
+    });
+  }
+
+  const updateMonth = (year, month, elementId) => {
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    const monthElement = document.getElementById(elementId);
+    clearCalendar(monthElement);
+    createWeekdayLabels(monthElement);
+
+    // Create empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      monthElement.appendChild(createCalendarDay(null));
+    }
+
+    // Create cells for each day of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      const cell = monthElement.appendChild(createCalendarDay(i));
+      if (isCurrentMonth && i === today.getDate()) {
+        cell.classList.add("today-highlight");
+      }
+    }
+
+    // Create empty cells to complete the last week if needed
+    const totalDays = firstDay + daysInMonth;
+    const remainingCells = (7 - (totalDays % 7)) % 7;
+    for (let i = 0; i < remainingCells; i++) {
+      monthElement.appendChild(createCalendarDay(null));
+    }
+
+    // Update ranges if this is the main month display
+    if (elementId === "selectedMonth") {
+      updateRangeDisplay();
+    }
+  };
+
   const updateCalendar = () => {
     const selectedMonth = parseInt(monthPicker.value);
     const selectedYear = parseInt(yearPicker.value);
-    const lastDayInMonth = getDaysInMonth(selectedYear, selectedMonth);
 
     // Update the current month
     updateMonth(selectedYear, selectedMonth, "selectedMonth");
@@ -246,8 +294,8 @@ document.addEventListener("DOMContentLoaded", () => {
       "prevMonth"
     );
     document.getElementById("prevMonthLabel").textContent = getMonthNameAndYear(
-      selectedYear,
-      selectedMonth - 1
+      prevMonthDate.getFullYear(),
+      prevMonthDate.getMonth()
     );
 
     // Calculate and update the next month
@@ -258,89 +306,9 @@ document.addEventListener("DOMContentLoaded", () => {
       "nextMonth"
     );
     document.getElementById("nextMonthLabel").textContent = getMonthNameAndYear(
-      selectedYear,
-      selectedMonth + 1
+      nextMonthDate.getFullYear(),
+      nextMonthDate.getMonth()
     );
-
-    const selectedContainer = document.getElementById("selectedMonth");
-    selectedContainer.addEventListener("mousedown", (e) => {
-      // Check if the primary (left) mouse button is pressed
-      if (e.button === 0) {
-        const targetDay = e.target.closest(".calendar-day");
-        if (targetDay) {
-          isDragging = true;
-          selectionStart = selectionEnd = targetDay.dataset.day;
-          firstCell = targetDay;
-          updateSelectionHighlights();
-        }
-      }
-    });
-
-    selectedContainer.addEventListener("mousemove", (e) => {
-      if (isDragging) {
-        const targetDay = e.target.closest(".calendar-day");
-        // If over a valid day cell
-        if (targetDay && targetDay.dataset.day) {
-          selectionEnd = targetDay.dataset.day;
-        } else {
-          // Check if selectionEnd is null before attempting numerical comparison
-          if (selectionEnd === null) {
-            // If selectionEnd is null, we're at the start of the drag
-            // Decide on setting to first or last day based on additional logic or default behavior
-            selectionEnd = lastDayInMonth.toString(); // Default to last day or implement additional logic
-          } else {
-            // Convert selectionStart and selectionEnd to integers for comparison
-            const start = parseInt(selectionStart, 10);
-            const end = parseInt(selectionEnd, 10);
-            const isDraggingToEnd = start <= end;
-            selectionEnd = isDraggingToEnd ? lastDayInMonth.toString() : "1";
-          }
-        }
-        updateSelectionHighlights();
-      }
-    });
-
-    selectedContainer.addEventListener("dragstart", (e) => {
-      e.preventDefault();
-    });
-
-    updateRangeDisplay();
-  };
-
-  const updateMonth = (year, month, elementId) => {
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    const leadingEmptyCells = firstDay - 1; // Assuming week starts on Monday (1)
-    const totalDaysDisplayed = leadingEmptyCells + daysInMonth + 1;
-    const today = new Date();
-    const isCurrentMonth =
-      today.getFullYear() === year && today.getMonth() === month;
-
-    // Calculate the number of trailing empty cells needed to complete the final row
-    const trailingEmptyCells = (7 - (totalDaysDisplayed % 7)) % 7;
-
-    const monthElement = document.getElementById(elementId);
-    clearCalendar(monthElement);
-    createWeekdayLabels(monthElement);
-
-    // create cells for each day
-    for (let i = 0; i < firstDay; i++) {
-      monthElement.appendChild(createCalendarDay(null));
-    }
-
-    for (let i = 1; i <= daysInMonth; i++) {
-      var cell = monthElement.appendChild(createCalendarDay(i));
-      if (isCurrentMonth) {
-        if (i === today.getDate()) {
-          cell.classList.add("today-highlight");
-        }
-      }
-      cell.setAttribute("data-day", i);
-    }
-
-    for (let i = 0; i < trailingEmptyCells; i++) {
-      monthElement.appendChild(createCalendarDay(null));
-    }
   };
 
   monthPicker.addEventListener("change", updateCalendar);
@@ -352,95 +320,84 @@ document.addEventListener("DOMContentLoaded", () => {
     updateCalendar();
   });
 
-  const clearRangesButton = document.getElementById("clearRangesButton");
-
   clearRangesButton.addEventListener("click", () => {
-      // Clear the arrays and storage
-      savedRanges = [];
-      localStorage.removeItem('calendarRanges');
-      
-      // Clear all visual highlights and labels
-      document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
-          const labelsContainer = dayCell.querySelector(".day-labels");
-          if (labelsContainer) {
-              labelsContainer.innerHTML = "";
-          }
-          dayCell.style.backgroundColor = "";
-          dayCell.style.opacity = "1";
-      });
+    savedRanges = [];
+    localStorage.removeItem('calendarRanges');
+    updateRangeDisplay();
   });
 
-  updateCalendar(); // Initial calendar setup
+  // Mouse event handlers for date selection
+  const selectedContainer = document.getElementById("selectedMonth");
+  
+  selectedContainer.addEventListener("mousedown", (e) => {
+    if (e.button === 0) {
+      const targetDay = e.target.closest(".calendar-day");
+      if (targetDay && targetDay.dataset.day) {
+        isDragging = true;
+        selectionStart = selectionEnd = targetDay.dataset.day;
+        firstCell = targetDay;
+        updateSelectionHighlights();
+      }
+    }
+  });
+
+  selectedContainer.addEventListener("mousemove", (e) => {
+    if (isDragging) {
+      const targetDay = e.target.closest(".calendar-day");
+      if (targetDay && targetDay.dataset.day) {
+        selectionEnd = targetDay.dataset.day;
+        updateSelectionHighlights();
+      }
+    }
+  });
+
+  selectedContainer.addEventListener("mouseup", async () => {
+    console.log('Mouse up event triggered, isDragging:', isDragging);  // Debug log
+    if (isDragging) {
+      await finalizeDateRange();
+    }
+  });
+
+  // Prevent text selection while dragging
+  selectedContainer.addEventListener("dragstart", (e) => {
+    e.preventDefault();
+  });
 
   document.addEventListener("mouseup", () => {
     if (isDragging) {
       isDragging = false;
-      if (firstCell) {
-        const countContainer = firstCell.querySelector(".selection-count");
-        countContainer.textContent = ""; // Clear count
-        firstCell = null;
-      }
-      // Optionally, clear the selection or perform an action with the selected range here
-      // For example, resetting selectionStart and selectionEnd
-      selectionStart = selectionEnd = null;
-      updateSelectionHighlights(); // Clear highlights or keep, depending on your app's logic
+      selectionStart = null;
+      selectionEnd = null;
+      firstCell = null;
+      document.querySelectorAll(".drag-highlight").forEach(cell => {
+        cell.classList.remove("drag-highlight");
+      });
     }
   });
-  // Modify the mouseup event listener
-  document.addEventListener("mouseup", finalizeDateRange);
 
   function updateSelectionHighlights() {
     let countHighlighted = 0;
-    document
-      .querySelectorAll("#selectedMonth .calendar-day")
-      .forEach((dayCell) => {
-        const day = dayCell.dataset.day;
-        const start = Math.min(selectionStart, selectionEnd); // Ensure correct order
-        const end = Math.max(selectionStart, selectionEnd);
+    document.querySelectorAll("#selectedMonth .calendar-day").forEach((dayCell) => {
+      const day = dayCell.dataset.day;
+      if (!day) return;
+      
+      const start = Math.min(selectionStart, selectionEnd);
+      const end = Math.max(selectionStart, selectionEnd);
+      
+      if (day >= start && day <= end) {
+        dayCell.classList.add("drag-highlight");
         countHighlighted = end - start + 1;
-        if (day >= start && day <= end) {
-          dayCell.classList.add("drag-highlight");
-        } else {
-          dayCell.classList.remove("drag-highlight");
-        }
-      });
+      } else {
+        dayCell.classList.remove("drag-highlight");
+      }
+    });
 
-    // Update the counter in the first cell if dragging
     if (isDragging && firstCell) {
       const countContainer = firstCell.querySelector(".selection-count");
-      countContainer.textContent = countHighlighted; // Display count
+      countContainer.textContent = countHighlighted || "";
     }
   }
 
-  async function finalizeDateRange() {
-    if (selectionStart && selectionEnd) {
-      try {
-        const label = await createLabelInput(
-          Math.min(selectionStart, selectionEnd),
-          Math.max(selectionStart, selectionEnd)
-        );
-        
-        const newRange = DateRange.create(
-          Math.min(selectionStart, selectionEnd),
-          Math.max(selectionStart, selectionEnd),
-          label
-        );
-        
-        savedRanges.push(newRange);
-        saveRanges();
-        updateRangeDisplay();
-      } catch (e) {
-        // User cancelled label input
-      }
-    }
-    
-    // Reset selection
-    isDragging = false;
-    selectionStart = null;
-    selectionEnd = null;
-    firstCell = null;
-    document.querySelectorAll(".drag-highlight").forEach(cell => {
-      cell.classList.remove("drag-highlight");
-    });
-  }
+  // Initial calendar setup
+  updateCalendar();
 });

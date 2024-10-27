@@ -1,21 +1,45 @@
-/* styles.css */
+/* Base styles */
 body,
 html {
   height: auto;
   min-height: 100%;
 }
 
-.month-container {
-  margin-bottom: 2rem;
-  /* Adds space between the months */
-}
-
-.small-month {
+/* Calendar Grid Layout */
+.calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  /* 7 columns for days */
-  grid-gap: 0.25rem;
+  gap: 1px;
+  background: #ddd;
 }
+
+.month-container {
+  margin-bottom: 2rem;
+}
+
+/* Calendar Day Cells */
+.calendar-day {
+  position: relative;
+  min-height: 100px;
+  background-color: white;
+  transition: background-color 0.2s ease;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.day-number {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  z-index: 2; /* Ensure day numbers are always on top */
+}
+
 
 .weekday-label {
   text-align: center;
@@ -25,29 +49,77 @@ html {
   font-weight: bold;
 }
 
-.calendar-grid {
+/* State Styles */
+.today-highlight {
+  background-color: rgba(219, 234, 254);
+}
+
+.drag-highlight {
+  background-color: rgb(224 231 255);
+}
+
+.selection-count {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: rgb(136, 96, 156);
+}
+
+/* Range Labels */
+.day-labels {
+  position: absolute;
+  top: 30px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  max-height: calc(100% - 35px); /* Leave space for day number */
+  overflow-y: auto; /* Allow scrolling if many labels */
+}
+
+.range-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: normal; /* Allow text to wrap */
+  word-break: break-word; /* Break long words if needed */
+  overflow: hidden;
+  pointer-events: auto;
+  position: relative;
+  padding-right: 16px; /* Space for delete button */
+  opacity: 0.8; /* Make the label slightly lighter */
+  max-width: 100%; /* Ensure it stays within the cell */
+  line-height: 1.2; /* Better spacing for wrapped text */
+}
+
+.delete-range {
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.delete-range:hover {
+  color: #000;
+}
+
+/* Small Month Modifications */
+.small-month {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  /* 7 columns for 7 days of the week */
-  gap: 1px;
-  /* Gap for the border */
-  background: #ddd;
-  /* Background color for the border */
-}
-
-.calendar-day {
-  background-color: white;
-  min-height: 100px;
-  position: relative;
-}
-
-.day-number {
-  position: absolute;
-  top: 0;
-  right: 0;
-  padding: 0.5rem;
-  font-size: 1.5rem;
-  font-weight: bold;
 }
 
 .small-month .calendar-day {
@@ -62,73 +134,11 @@ html {
   font-size: 0.75rem;
 }
 
-.today-highlight {
-  background-color: rgba(219, 234, 254);
+.small-month .day-labels {
+  display: none;
 }
 
-.drag-highlight {
-  /*background-color: rgb(212, 237, 224);*/
-  background-color: rgb(224 231 255);
-}
-
-.calendar-day,
-.calendar-day .day-number {
-  user-select: none; /* Prevent text selection */
-}
-
-.selection-count {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  padding: 0.5rem;
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: rgb(136, 96, 156);
-}
-
-/* Add these styles to your existing CSS */
-
-.day-labels {
-  position: absolute;
-  top: 25px;
-  left: 4px;
-  right: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  pointer-events: none;
-}
-
-.range-label {
-  font-size: 0.75rem;
-  padding: 2px 4px;
-  border-radius: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: auto;
-  position: relative;
-  padding-right: 20px; /* Space for delete button */
-}
-
-.delete-range {
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 2px;
-}
-
-.delete-range:hover {
-  color: #000;
-}
-
+/* Modal Styles */
 .label-modal {
   position: fixed;
   top: 0;
@@ -158,6 +168,7 @@ html {
   border-radius: 4px;
 }
 
+/* Button Styles */
 .modal-buttons {
   display: flex;
   justify-content: flex-end;
@@ -191,19 +202,6 @@ html {
   background: #d1d5db;
 }
 
-/* Modify existing calendar-day class */
-.calendar-day {
-  position: relative;
-  min-height: 100px;
-  background-color: white;
-  transition: background-color 0.2s ease;
-}
-
-/* Small month modifications */
-.small-month .day-labels {
-  display: none;
-}
-
 #clearRangesButton {
-  margin-left: 8px;  /* Space from other buttons */
+  margin-left: 8px;
 }

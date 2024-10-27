@@ -1,3 +1,21 @@
+const DateRange = {
+  create: function(start, end, label, color) {
+    return {
+      id: Date.now().toString(), // unique identifier
+      start: parseInt(start),
+      end: parseInt(end),
+      label: label,
+      color: color || this.getRandomPastelColor()
+    };
+  },
+
+  // Generate a random pastel color for range highlighting
+  getRandomPastelColor: function() {
+    const hue = Math.floor(Math.random() * 360);
+    return `hsl(${hue}, 70%, 90%)`;
+  }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const monthPicker = document.getElementById("monthPicker");
   const yearPicker = document.getElementById("yearPicker");
@@ -7,6 +25,23 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectionStart = null;
   let selectionEnd = null;
   let firstCell = null;
+  let savedRanges = [];
+
+  // Load saved ranges from localStorage
+  function loadSavedRanges() {
+    const saved = localStorage.getItem('calendarRanges');
+    if (saved) {
+      savedRanges = JSON.parse(saved);
+    }
+  }
+
+  // Save ranges to localStorage
+  function saveRanges() {
+    localStorage.setItem('calendarRanges', JSON.stringify(savedRanges));
+  }
+
+  // Load saved ranges on startup
+  loadSavedRanges();
 
   const months = [
     "January",
@@ -61,17 +96,69 @@ document.addEventListener("DOMContentLoaded", () => {
     const cell = document.createElement("div");
     cell.className = "calendar-day";
     if (day !== null) {
-      cell.className = "calendar-day";
       const dayNumber = document.createElement("div");
       dayNumber.className = "day-number";
       dayNumber.textContent = day;
       cell.appendChild(dayNumber);
+
+      const labelsContainer = document.createElement("div");
+      labelsContainer.className = "day-labels";
+      cell.appendChild(labelsContainer);
 
       const dayCount = document.createElement("div");
       dayCount.className = "selection-count";
       cell.appendChild(dayCount);
     }
     return cell;
+  }
+
+  function createLabelInput(start, end) {
+    const modal = document.createElement("div");
+    modal.className = "label-modal";
+    modal.innerHTML = `
+      <div class="label-modal-content">
+        <h3>Add Label for Selected Range</h3>
+        <p>Days: ${start} - ${end}</p>
+        <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input">
+        <div class="modal-buttons">
+          <button id="saveLabelBtn" class="primary-button">Save</button>
+          <button id="cancelLabelBtn" class="secondary-button">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const input = modal.querySelector("#rangeLabel");
+    const saveBtn = modal.querySelector("#saveLabelBtn");
+    const cancelBtn = modal.querySelector("#cancelLabelBtn");
+
+    return new Promise((resolve, reject) => {
+      saveBtn.addEventListener("click", () => {
+        const label = input.value.trim();
+        if (label) {
+          modal.remove();
+          resolve(label);
+        }
+      });
+
+      cancelBtn.addEventListener("click", () => {
+        modal.remove();
+        reject();
+      });
+
+      input.addEventListener("keyup", (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          modal.remove();
+          resolve(input.value.trim());
+        } else if (e.key === "Escape") {
+          modal.remove();
+          reject();
+        }
+      });
+
+      input.focus();
+    });
   }
 
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -89,6 +176,59 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearCalendar = (calendar) => {
     calendar.innerHTML = "";
   };
+
+  function updateRangeDisplay() {
+    // Clear all existing highlights and labels
+    document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
+      const day = dayCell.dataset.day;
+      if (!day) return;
+
+      const labelsContainer = dayCell.querySelector(".day-labels");
+      labelsContainer.innerHTML = "";
+      dayCell.style.backgroundColor = "";
+
+      // Find all ranges that include this day
+      const matchingRanges = savedRanges.filter(range => 
+        day >= range.start && day <= range.end
+      );
+
+      // Apply highlights and labels
+      matchingRanges.forEach(range => {
+        // Only show label on first day of range
+        if (parseInt(day) === range.start) {
+          const label = document.createElement("div");
+          label.className = "range-label";
+          label.textContent = range.label;
+          label.style.backgroundColor = range.color;
+          label.setAttribute('data-range-id', range.id);
+          
+          // Add delete button
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-range";
+          deleteBtn.innerHTML = "×";
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            savedRanges = savedRanges.filter(r => r.id !== range.id);
+            saveRanges();
+            updateRangeDisplay();
+          };
+          
+          label.appendChild(deleteBtn);
+          labelsContainer.appendChild(label);
+        }
+
+        // Apply highlight with reduced opacity for overlapping ranges
+        const existingColor = dayCell.style.backgroundColor;
+        if (!existingColor) {
+          dayCell.style.backgroundColor = range.color;
+        } else {
+          // If already highlighted, make it slightly darker
+          dayCell.style.backgroundColor = range.color;
+          dayCell.style.opacity = "0.8";
+        }
+      });
+    });
+  }
 
   const updateCalendar = () => {
     const selectedMonth = parseInt(monthPicker.value);
@@ -163,6 +303,8 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedContainer.addEventListener("dragstart", (e) => {
       e.preventDefault();
     });
+
+    updateRangeDisplay();
   };
 
   const updateMonth = (year, month, elementId) => {
@@ -210,6 +352,24 @@ document.addEventListener("DOMContentLoaded", () => {
     updateCalendar();
   });
 
+  const clearRangesButton = document.getElementById("clearRangesButton");
+
+  clearRangesButton.addEventListener("click", () => {
+      // Clear the arrays and storage
+      savedRanges = [];
+      localStorage.removeItem('calendarRanges');
+      
+      // Clear all visual highlights and labels
+      document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
+          const labelsContainer = dayCell.querySelector(".day-labels");
+          if (labelsContainer) {
+              labelsContainer.innerHTML = "";
+          }
+          dayCell.style.backgroundColor = "";
+          dayCell.style.opacity = "1";
+      });
+  });
+
   updateCalendar(); // Initial calendar setup
 
   document.addEventListener("mouseup", () => {
@@ -226,6 +386,8 @@ document.addEventListener("DOMContentLoaded", () => {
       updateSelectionHighlights(); // Clear highlights or keep, depending on your app's logic
     }
   });
+  // Modify the mouseup event listener
+  document.addEventListener("mouseup", finalizeDateRange);
 
   function updateSelectionHighlights() {
     let countHighlighted = 0;
@@ -248,5 +410,37 @@ document.addEventListener("DOMContentLoaded", () => {
       const countContainer = firstCell.querySelector(".selection-count");
       countContainer.textContent = countHighlighted; // Display count
     }
+  }
+
+  async function finalizeDateRange() {
+    if (selectionStart && selectionEnd) {
+      try {
+        const label = await createLabelInput(
+          Math.min(selectionStart, selectionEnd),
+          Math.max(selectionStart, selectionEnd)
+        );
+        
+        const newRange = DateRange.create(
+          Math.min(selectionStart, selectionEnd),
+          Math.max(selectionStart, selectionEnd),
+          label
+        );
+        
+        savedRanges.push(newRange);
+        saveRanges();
+        updateRangeDisplay();
+      } catch (e) {
+        // User cancelled label input
+      }
+    }
+    
+    // Reset selection
+    isDragging = false;
+    selectionStart = null;
+    selectionEnd = null;
+    firstCell = null;
+    document.querySelectorAll(".drag-highlight").forEach(cell => {
+      cell.classList.remove("drag-highlight");
+    });
   }
 });

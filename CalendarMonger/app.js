@@ -12,26 +12,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const DateRange = {
     create: function(start, end, label, color) {
+      const selectedMonth = parseInt(monthPicker.value);
+      const selectedYear = parseInt(yearPicker.value);
+
+      // Create the date objects and set time to midnight for consistent comparison
+      const startDate = new Date(selectedYear, selectedMonth, parseInt(start, 10));
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(selectedYear, selectedMonth, parseInt(end, 10));
+      endDate.setHours(23, 59, 59, 999);
+
       return {
         id: Date.now().toString(),
-        start: parseInt(start, 10),
-        end: parseInt(end, 10),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         label: label,
-        color: color || this.getDistinctHueColor(start, end)
+        color: color || this.getDistinctHueColor(startDate.toISOString(), endDate.toISOString())
       };
     },
-  
+
     hasOverlap: function(range1, range2) {
-      return !(range1.end < range2.start || range1.start > range2.end);
+      const start1 = new Date(range1.startDate);
+      const end1 = new Date(range1.endDate);
+      const start2 = new Date(range2.startDate);
+      const end2 = new Date(range2.endDate);
+
+      return start1 <= end2 && start2 <= end1;
     },
-  
+
     // Convert HSL to RGB hex color
     hslToHex: function(h, s, l) {
       let r, g, b;
       h /= 360;
       s /= 100;
       l /= 100;
-  
+
       if (s === 0) {
         r = g = b = l;
       } else {
@@ -43,22 +58,22 @@ document.addEventListener("DOMContentLoaded", () => {
           if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
           return p;
         };
-  
+
         const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
         const p = 2 * l - q;
         r = hue2rgb(p, q, h + 1/3);
         g = hue2rgb(p, q, h);
         b = hue2rgb(p, q, h - 1/3);
       }
-  
+
       const toHex = x => {
         const hex = Math.round(x * 255).toString(16);
         return hex.length === 1 ? '0' + hex : hex;
       };
-  
+
       return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     },
-  
+
     // Extract hue from HSL color string
     getHueFromColor: function(color) {
       // Handle hex colors
@@ -67,22 +82,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const r = parseInt(color.slice(1, 3), 16) / 255;
         const g = parseInt(color.slice(3, 5), 16) / 255;
         const b = parseInt(color.slice(5, 7), 16) / 255;
-  
+
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
         let h;
-  
+
         if (max === min) {
           return 0; // achromatic
         }
-  
+
         const d = max - min;
         switch (max) {
           case r: h = (g - b) / d + (g < b ? 6 : 0); break;
           case g: h = (b - r) / d + 2; break;
           case b: h = (r - g) / d + 4; break;
         }
-  
+
         return Math.round(h * 60);
       }
       // Handle hsl colors
@@ -91,55 +106,48 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return 0;
     },
-  
-    getDistinctHueColor: function(start, end) {
-      // Find overlapping ranges
+
+    getDistinctHueColor: function(startDate, endDate) {
+      // Find overlapping ranges using the ISO string dates
       const overlappingRanges = savedRanges.filter(range => 
         this.hasOverlap(
-          { start, end },
-          { start: range.start, end: range.end }
+          { startDate, endDate },
+          range
         )
       );
-  
+
       if (overlappingRanges.length === 0) {
-        // If no overlaps, use a random pastel color
         return this.hslToHex(Math.floor(Math.random() * 360), 70, 90);
       }
-  
-      // Get existing hues
+
       const existingHues = overlappingRanges.map(range => 
         this.getHueFromColor(range.color)
       );
-  
-      // Find the largest gap in hues
+
       existingHues.sort((a, b) => a - b);
-      
+
       let maxGap = 0;
       let gapStart = 0;
-      
-      // Check gaps between existing hues
+
       for (let i = 0; i < existingHues.length; i++) {
         const nextIndex = (i + 1) % existingHues.length;
         let gap = existingHues[nextIndex] - existingHues[i];
         if (gap < 0) gap += 360;
-        
+
         if (gap > maxGap) {
           maxGap = gap;
           gapStart = existingHues[i];
         }
       }
-  
-      // If we have no large gaps between existing hues, use the complementary color
-      // of the first overlapping range
+
       if (maxGap < 60 && existingHues.length === 1) {
         const newHue = (existingHues[0] + 180) % 360;
         return this.hslToHex(newHue, 70, 90);
       }
-  
-      // Use the middle of the largest gap
+
       const newHue = (gapStart + maxGap / 2) % 360;
       return this.hslToHex(Math.round(newHue), 70, 90);
-    }
+    },
   };
 
   // Load saved ranges from localStorage
@@ -243,7 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
       saveBtn.addEventListener("click", () => {
         const label = input.value.trim();
         if (label) {
-          console.log('Save button clicked with label:', label);  // Debug log
           modal.remove();
           resolve(label);
         }
@@ -268,8 +275,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Modify the updateRangeDisplay function to show overlap indicators
   function updateRangeDisplay() {
+    const selectedMonth = parseInt(monthPicker.value);
+    const selectedYear = parseInt(yearPicker.value);
+
     document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
       const day = dayCell.dataset.day;
       if (!day) return;
@@ -278,36 +287,42 @@ document.addEventListener("DOMContentLoaded", () => {
       const labelsContainer = dayCell.querySelector(".day-labels");
       labelsContainer.innerHTML = "";
       dayCell.style.backgroundColor = "";
-      dayCell.style.background = ""; // Clear any existing gradients
+      dayCell.style.background = "";
       dayCell.style.opacity = "1";
 
-      // Remove any existing overlap indicators
       const existingIndicator = dayCell.querySelector(".overlap-indicator");
       if (existingIndicator) {
         existingIndicator.remove();
       }
 
-      const matchingRanges = savedRanges.filter(range => 
-        parseInt(day) >= range.start && parseInt(day) <= range.end
-      );
+      // Create a Date object for the current cell
+      const cellDate = new Date(selectedYear, selectedMonth, parseInt(day));
+      cellDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
 
-      // Only add overlap indicator and gradient if there are multiple ranges
+      // Find ranges that include this date
+      const matchingRanges = savedRanges.filter(range => {
+        const startDate = new Date(range.startDate);
+        const endDate = new Date(range.endDate);
+        return cellDate >= startDate && cellDate <= endDate;
+      });
+
       if (matchingRanges.length > 1) {
         const overlapIndicator = document.createElement("div");
         overlapIndicator.className = "overlap-indicator";
         overlapIndicator.innerHTML = "⋒";
         dayCell.appendChild(overlapIndicator);
 
-        // Apply gradient background for multiple ranges
         const gradientColors = matchingRanges.map(r => r.color);
         dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
       } else if (matchingRanges.length === 1) {
-        // Single range - just use solid background
         dayCell.style.backgroundColor = matchingRanges[0].color;
       }
 
       matchingRanges.forEach(range => {
-        if (parseInt(day) === range.start) {
+        const startDate = new Date(range.startDate);
+        if (startDate.getDate() === parseInt(day) && 
+            startDate.getMonth() === selectedMonth && 
+            startDate.getFullYear() === selectedYear) {
           const label = document.createElement("div");
           label.className = "range-label";
           label.textContent = range.label;
@@ -318,7 +333,6 @@ document.addEventListener("DOMContentLoaded", () => {
           deleteBtn.className = "delete-range";
           deleteBtn.innerHTML = "×";
 
-          // Existing delete button event handlers
           deleteBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -359,45 +373,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function finalizeDateRange() {
     const clearSelectionUI = () => {
-        // Clear all selection-related UI elements
-        isDragging = false;
-        selectionStart = null;
-        selectionEnd = null;
+      isDragging = false;
+      selectionStart = null;
+      selectionEnd = null;
 
-        // Clear the count display explicitly
-        document.querySelectorAll(".selection-count").forEach(counter => {
-            counter.textContent = "";
-        });
+      document.querySelectorAll(".selection-count").forEach(counter => {
+        counter.textContent = "";
+      });
 
-        // Remove highlights
-        document.querySelectorAll(".drag-highlight").forEach(cell => {
-            cell.classList.remove("drag-highlight");
-        });
+      document.querySelectorAll(".drag-highlight").forEach(cell => {
+        cell.classList.remove("drag-highlight");
+      });
 
-        firstCell = null;
+      firstCell = null;
     };
 
     if (selectionStart && selectionEnd) {
-        try {
-            const start = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
-            const end = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
+      try {
+        // Ensure we use the smaller number as start
+        const startDay = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
+        const endDay = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
 
-            const label = await createLabelInput(start, end);
-            const newRange = DateRange.create(start, end, label);
+        const label = await createLabelInput(startDay, endDay);
+        const newRange = DateRange.create(startDay, endDay, label);
 
-            savedRanges.push(newRange);
-            saveRanges();
-            updateRangeDisplay();
-        } catch (e) {
-            console.error('Error in finalizeDateRange:', e);
-        } finally {
-            // Clear UI regardless of success or failure
-            clearSelectionUI();
-        }
-    } else {
+        // Add to existing ranges
+        savedRanges = [...savedRanges, newRange];
+        saveRanges();
+        updateRangeDisplay();
+
+        console.log('Added new range:', newRange); // Debug log
+        console.log('Current ranges:', savedRanges); // Debug log
+      } catch (e) {
+        console.error('Error in finalizeDateRange:', e);
+      } finally {
         clearSelectionUI();
+      }
+    } else {
+      clearSelectionUI();
     }
   }
+
 
   const updateMonth = (year, month, elementId) => {
     const daysInMonth = getDaysInMonth(year, month);

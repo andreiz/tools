@@ -153,59 +153,77 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Modify the updateRangeDisplay function to show overlap indicators
   function updateRangeDisplay() {
     document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
-        const day = dayCell.dataset.day;
-        if (!day) return;
+      const day = dayCell.dataset.day;
+      if (!day) return;
 
-        const labelsContainer = dayCell.querySelector(".day-labels");
-        labelsContainer.innerHTML = "";
-        dayCell.style.backgroundColor = "";
-        dayCell.style.opacity = "1";
+      // Clear all existing content and styling
+      const labelsContainer = dayCell.querySelector(".day-labels");
+      labelsContainer.innerHTML = "";
+      dayCell.style.backgroundColor = "";
+      dayCell.style.background = ""; // Clear any existing gradients
+      dayCell.style.opacity = "1";
 
-        const matchingRanges = savedRanges.filter(range => 
-            parseInt(day) >= range.start && parseInt(day) <= range.end
-        );
+      // Remove any existing overlap indicators
+      const existingIndicator = dayCell.querySelector(".overlap-indicator");
+      if (existingIndicator) {
+        existingIndicator.remove();
+      }
 
-        matchingRanges.forEach(range => {
-            if (parseInt(day) === range.start) {
-                const label = document.createElement("div");
-                label.className = "range-label";
-                label.textContent = range.label;
-                label.style.backgroundColor = range.color;
-                label.setAttribute('data-range-id', range.id);
+      const matchingRanges = savedRanges.filter(range => 
+        parseInt(day) >= range.start && parseInt(day) <= range.end
+      );
 
-                const deleteBtn = document.createElement("button");
-                deleteBtn.className = "delete-range";
-                deleteBtn.innerHTML = "×";
+      // Only add overlap indicator and gradient if there are multiple ranges
+      if (matchingRanges.length > 1) {
+        const overlapIndicator = document.createElement("div");
+        overlapIndicator.className = "overlap-indicator";
+        overlapIndicator.innerHTML = "⋒";
+        dayCell.appendChild(overlapIndicator);
 
-                // Handle the mousedown event instead of click
-                deleteBtn.addEventListener('mousedown', (e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  e.stopImmediatePropagation();
-                });
+        // Apply gradient background for multiple ranges
+        const gradientColors = matchingRanges.map(r => r.color);
+        dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
+      } else if (matchingRanges.length === 1) {
+        // Single range - just use solid background
+        dayCell.style.backgroundColor = matchingRanges[0].color;
+      }
 
-                // Also prevent mouseup from triggering calendar events
-                deleteBtn.addEventListener('mouseup', (e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  e.stopImmediatePropagation();
+      matchingRanges.forEach(range => {
+        if (parseInt(day) === range.start) {
+          const label = document.createElement("div");
+          label.className = "range-label";
+          label.textContent = range.label;
+          label.style.backgroundColor = range.color;
+          label.setAttribute('data-range-id', range.id);
 
-                  savedRanges = savedRanges.filter(r => r.id !== range.id);
-                  saveRanges();
-                  updateRangeDisplay();
-                });
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-range";
+          deleteBtn.innerHTML = "×";
 
-                label.appendChild(deleteBtn);
-                labelsContainer.appendChild(label);
-            }
+          // Existing delete button event handlers
+          deleteBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          });
 
-            dayCell.style.backgroundColor = range.color;
-            if (matchingRanges.length > 1) {
-                dayCell.style.opacity = "0.8";
-            }
-        });
+          deleteBtn.addEventListener('mouseup', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            savedRanges = savedRanges.filter(r => r.id !== range.id);
+            saveRanges();
+            updateRangeDisplay();
+          });
+
+          label.appendChild(deleteBtn);
+          labelsContainer.appendChild(label);
+        }
+      });
     });
   }
 

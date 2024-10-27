@@ -207,14 +207,26 @@ html {
   margin-right: 8px;
 }
 
-.overlap-indicator {
+.range-start, .range-end {
+  position: relative;
+}
+
+.range-start::before {
+  content: '';
   position: absolute;
-  top: 2px;
-  left: 4px;
-  color: #4f46e5;
-  font-size: 1rem;
-  width: auto;
-  height: auto;
-  z-index: 3;
-  opacity: 0.8;
+  top: 0;
+  left: 0;
+  border-top: 8px solid #666;
+  border-right: 8px solid transparent;
+  opacity: 0.4;
+}
+
+.range-end::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border-bottom: 8px solid #666;
+  border-left: 8px solid transparent;
+  opacity: 0.4;
 }

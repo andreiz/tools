@@ -290,14 +290,12 @@ document.addEventListener("DOMContentLoaded", () => {
       dayCell.style.background = "";
       dayCell.style.opacity = "1";
 
-      const existingIndicator = dayCell.querySelector(".overlap-indicator");
-      if (existingIndicator) {
-        existingIndicator.remove();
-      }
+      // Remove any existing classes
+      dayCell.classList.remove('range-start', 'range-end');
 
       // Create a Date object for the current cell
       const cellDate = new Date(selectedYear, selectedMonth, parseInt(day));
-      cellDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+      cellDate.setHours(12, 0, 0, 0);
 
       // Find ranges that include this date
       const matchingRanges = savedRanges.filter(range => {
@@ -306,23 +304,25 @@ document.addEventListener("DOMContentLoaded", () => {
         return cellDate >= startDate && cellDate <= endDate;
       });
 
+      // Apply background colors
       if (matchingRanges.length > 1) {
-        const overlapIndicator = document.createElement("div");
-        overlapIndicator.className = "overlap-indicator";
-        overlapIndicator.innerHTML = "⋒";
-        dayCell.appendChild(overlapIndicator);
-
         const gradientColors = matchingRanges.map(r => r.color);
         dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
       } else if (matchingRanges.length === 1) {
         dayCell.style.backgroundColor = matchingRanges[0].color;
       }
 
+      // Add start/end indicators
       matchingRanges.forEach(range => {
         const startDate = new Date(range.startDate);
+        const endDate = new Date(range.endDate);
+
         if (startDate.getDate() === parseInt(day) && 
             startDate.getMonth() === selectedMonth && 
             startDate.getFullYear() === selectedYear) {
+          dayCell.classList.add('range-start');
+
+          // Add label for range start
           const label = document.createElement("div");
           label.className = "range-label";
           label.textContent = range.label;
@@ -351,6 +351,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
           label.appendChild(deleteBtn);
           labelsContainer.appendChild(label);
+        }
+
+        if (endDate.getDate() === parseInt(day) && 
+            endDate.getMonth() === selectedMonth && 
+            endDate.getFullYear() === selectedYear) {
+          dayCell.classList.add('range-end');
         }
       });
     });

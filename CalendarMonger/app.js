@@ -17,13 +17,128 @@ document.addEventListener("DOMContentLoaded", () => {
         start: parseInt(start, 10),
         end: parseInt(end, 10),
         label: label,
-        color: color || this.getRandomPastelColor()
+        color: color || this.getDistinctHueColor(start, end)
       };
     },
-
-    getRandomPastelColor: function() {
-      const hue = Math.floor(Math.random() * 360);
-      return `hsl(${hue}, 70%, 90%)`;
+  
+    hasOverlap: function(range1, range2) {
+      return !(range1.end < range2.start || range1.start > range2.end);
+    },
+  
+    // Convert HSL to RGB hex color
+    hslToHex: function(h, s, l) {
+      let r, g, b;
+      h /= 360;
+      s /= 100;
+      l /= 100;
+  
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+  
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+  
+      const toHex = x => {
+        const hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+  
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    },
+  
+    // Extract hue from HSL color string
+    getHueFromColor: function(color) {
+      // Handle hex colors
+      if (color.startsWith('#')) {
+        // Convert hex to RGB
+        const r = parseInt(color.slice(1, 3), 16) / 255;
+        const g = parseInt(color.slice(3, 5), 16) / 255;
+        const b = parseInt(color.slice(5, 7), 16) / 255;
+  
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h;
+  
+        if (max === min) {
+          return 0; // achromatic
+        }
+  
+        const d = max - min;
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+  
+        return Math.round(h * 60);
+      }
+      // Handle hsl colors
+      if (color.startsWith('hsl')) {
+        return parseInt(color.match(/hsl\((\d+)/)[1]);
+      }
+      return 0;
+    },
+  
+    getDistinctHueColor: function(start, end) {
+      // Find overlapping ranges
+      const overlappingRanges = savedRanges.filter(range => 
+        this.hasOverlap(
+          { start, end },
+          { start: range.start, end: range.end }
+        )
+      );
+  
+      if (overlappingRanges.length === 0) {
+        // If no overlaps, use a random pastel color
+        return this.hslToHex(Math.floor(Math.random() * 360), 70, 90);
+      }
+  
+      // Get existing hues
+      const existingHues = overlappingRanges.map(range => 
+        this.getHueFromColor(range.color)
+      );
+  
+      // Find the largest gap in hues
+      existingHues.sort((a, b) => a - b);
+      
+      let maxGap = 0;
+      let gapStart = 0;
+      
+      // Check gaps between existing hues
+      for (let i = 0; i < existingHues.length; i++) {
+        const nextIndex = (i + 1) % existingHues.length;
+        let gap = existingHues[nextIndex] - existingHues[i];
+        if (gap < 0) gap += 360;
+        
+        if (gap > maxGap) {
+          maxGap = gap;
+          gapStart = existingHues[i];
+        }
+      }
+  
+      // If we have no large gaps between existing hues, use the complementary color
+      // of the first overlapping range
+      if (maxGap < 60 && existingHues.length === 1) {
+        const newHue = (existingHues[0] + 180) % 360;
+        return this.hslToHex(newHue, 70, 90);
+      }
+  
+      // Use the middle of the largest gap
+      const newHue = (gapStart + maxGap / 2) % 360;
+      return this.hslToHex(Math.round(newHue), 70, 90);
     }
   };
 

@@ -107,46 +107,55 @@ document.addEventListener("DOMContentLoaded", () => {
       return 0;
     },
 
-    getDistinctHueColor: function(startDate, endDate) {
-      // Find overlapping ranges using the ISO string dates
-      const overlappingRanges = savedRanges.filter(range => 
-        this.hasOverlap(
-          { startDate, endDate },
-          range
-        )
-      );
+    // Predefined aesthetically pleasing hues
+    baseHues: [
+      0,    // Red
+      120,  // Green
+      240,  // Blue
+      60,   // Yellow
+      180,  // Cyan
+      300,  // Magenta
+      30,   // Orange
+      90,   // Yellow-green
+      150,  // Blue-green
+      210,  // Blue-purple
+      270,  // Purple
+      330   // Pink
+    ],
 
-      if (overlappingRanges.length === 0) {
-        return this.hslToHex(Math.floor(Math.random() * 360), 70, 90);
+    getDistinctHueColor: function(startDate, endDate) {
+      if (savedRanges.length === 0) {
+        // First color - pick randomly from base hues
+        const hue = this.baseHues[Math.floor(Math.random() * this.baseHues.length)];
+        return this.hslToHex(hue, 70, 90);
       }
 
-      const existingHues = overlappingRanges.map(range => 
+      const existingHues = savedRanges.map(range => 
         this.getHueFromColor(range.color)
       );
 
-      existingHues.sort((a, b) => a - b);
+      // Find the base hue that's furthest from all existing hues
+      let bestHue = 0;
+      let maxMinDistance = 0;
 
-      let maxGap = 0;
-      let gapStart = 0;
+      for (const baseHue of this.baseHues) {
+        let minDistance = 360;
 
-      for (let i = 0; i < existingHues.length; i++) {
-        const nextIndex = (i + 1) % existingHues.length;
-        let gap = existingHues[nextIndex] - existingHues[i];
-        if (gap < 0) gap += 360;
+        for (const existingHue of existingHues) {
+          let distance = Math.abs(baseHue - existingHue);
+          if (distance > 180) {
+            distance = 360 - distance;
+          }
+          minDistance = Math.min(minDistance, distance);
+        }
 
-        if (gap > maxGap) {
-          maxGap = gap;
-          gapStart = existingHues[i];
+        if (minDistance > maxMinDistance) {
+          maxMinDistance = minDistance;
+          bestHue = baseHue;
         }
       }
 
-      if (maxGap < 60 && existingHues.length === 1) {
-        const newHue = (existingHues[0] + 180) % 360;
-        return this.hslToHex(newHue, 70, 90);
-      }
-
-      const newHue = (gapStart + maxGap / 2) % 360;
-      return this.hslToHex(Math.round(newHue), 70, 90);
+      return this.hslToHex(bestHue, 70, 90);
     },
   };
 

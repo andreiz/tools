@@ -74,7 +74,7 @@ html {
   position: absolute;
   top: 30px;
   left: 4px;
-  right: 4px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -84,9 +84,10 @@ html {
 }
 
 .range-label {
-  font-size: 0.75rem;
+  font-size: 1.1rem;
   font-weight: bold;
-  padding: 1px 4px;
+  color: rgb(95, 95, 95);
+  padding: 3px 6px;
   border-radius: 3px;
   white-space: normal; /* Allow text to wrap */
   word-break: break-word; /* Break long words if needed */
@@ -94,14 +95,14 @@ html {
   pointer-events: auto;
   position: relative;
   padding-right: 16px; /* Space for delete button */
-  opacity: 0.8; /* Make the label slightly lighter */
+  /*opacity: 0.8; /* Make the label slightly lighter */
   max-width: 100%; /* Ensure it stays within the cell */
   line-height: 1.2; /* Better spacing for wrapped text */
 }
 
 .delete-range {
   position: absolute;
-  right: 1px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   background: none;

@@ -11,15 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let savedRanges = [];
 
   const DateRange = {
-    create: function(start, end, label, color) {
-      const selectedMonth = parseInt(monthPicker.value);
-      const selectedYear = parseInt(yearPicker.value);
-
-      // Create the date objects and set time to midnight for consistent comparison
-      const startDate = new Date(selectedYear, selectedMonth, parseInt(start, 10));
+    create: function(startDate, endDate, label, color) {
+      // Set time to midnight for start and 23:59:59.999 for end
       startDate.setHours(0, 0, 0, 0);
-
-      const endDate = new Date(selectedYear, selectedMonth, parseInt(end, 10));
       endDate.setHours(23, 59, 59, 999);
 
       return {
@@ -238,10 +232,37 @@ document.addEventListener("DOMContentLoaded", () => {
   function createLabelInput(start, end) {
     const modal = document.createElement("div");
     modal.className = "label-modal";
+
+    const selectedMonth = parseInt(monthPicker.value);
+    const selectedYear = parseInt(yearPicker.value);
+    const startDate = new Date(selectedYear, selectedMonth, parseInt(start));
+    const endDate = new Date(selectedYear, selectedMonth, parseInt(end));
+    const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
     modal.innerHTML = `
       <div class="label-modal-content">
         <h3>Add Label for Selected Range</h3>
-        <p>Days: ${start} - ${end}</p>
+        <div class="date-controls">
+          <div class="dates-container">
+            <div class="date-row">
+              <div class="date-label">Start Date:</div>
+              <div class="date-value">${startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+            </div>
+            <div class="date-row">
+              <div class="date-label">End Date:</div>
+              <div class="date-value">${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+            </div>
+          </div>
+          <div class="duration-control">
+            <label>Duration:</label>
+            <input type="number" 
+                  id="rangeDuration" 
+                  value="${duration}" 
+                  min="1" 
+                  class="duration-input">
+            <span>days</span>
+          </div>
+        </div>
         <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input">
         <div class="modal-buttons">
           <button id="saveLabelBtn" class="primary-button">Save</button>
@@ -253,15 +274,34 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(modal);
 
     const input = modal.querySelector("#rangeLabel");
+    const durationInput = modal.querySelector("#rangeDuration");
     const saveBtn = modal.querySelector("#saveLabelBtn");
     const cancelBtn = modal.querySelector("#cancelLabelBtn");
+    const endDateValue = modal.querySelector(".date-row:nth-child(2) .date-value");
+
+    // Handle duration changes
+    durationInput.addEventListener("input", () => {
+      const newDuration = parseInt(durationInput.value) || 1;
+      const newEndDate = new Date(startDate);
+      newEndDate.setDate(startDate.getDate() + newDuration - 1);
+      endDate.setTime(newEndDate.getTime());
+
+      endDateValue.textContent = newEndDate.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric'
+      });
+    });
 
     return new Promise((resolve, reject) => {
       saveBtn.addEventListener("click", () => {
         const label = input.value.trim();
         if (label) {
           modal.remove();
-          resolve(label);
+          resolve({
+            label,
+            startDate,
+            endDate
+          });
         }
       });
 
@@ -273,7 +313,11 @@ document.addEventListener("DOMContentLoaded", () => {
       input.addEventListener("keyup", (e) => {
         if (e.key === "Enter" && input.value.trim()) {
           modal.remove();
-          resolve(input.value.trim());
+          resolve({
+            label: input.value.trim(),
+            startDate,
+            endDate
+          });
         } else if (e.key === "Escape") {
           modal.remove();
           reject();
@@ -409,16 +453,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const startDay = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
         const endDay = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
 
-        const label = await createLabelInput(startDay, endDay);
-        const newRange = DateRange.create(startDay, endDay, label);
+        const result = await createLabelInput(startDay, endDay);
+        const newRange = DateRange.create(result.startDate, result.endDate, result.label);
 
         // Add to existing ranges
         savedRanges = [...savedRanges, newRange];
         saveRanges();
         updateRangeDisplay();
 
-        console.log('Added new range:', newRange); // Debug log
-        console.log('Current ranges:', savedRanges); // Debug log
+        console.log('Added new range:', newRange);
+        console.log('Current ranges:', savedRanges);
       } catch (e) {
         console.error('Error in finalizeDateRange:', e);
       } finally {
@@ -428,7 +472,6 @@ document.addEventListener("DOMContentLoaded", () => {
       clearSelectionUI();
     }
   }
-
 
   const updateMonth = (year, month, elementId) => {
     const daysInMonth = getDaysInMonth(year, month);

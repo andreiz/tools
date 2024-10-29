@@ -231,3 +231,50 @@ html {
   border-left: 8px solid transparent;
   opacity: 0.4;
 }
+
+.date-controls {
+  margin: 15px 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.dates-container {
+  flex: 1;
+}
+
+.date-row {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  gap: 10px;
+}
+
+.date-label {
+  width: 80px;
+  font-weight: bold;
+}
+
+.date-value {
+  flex: 1;
+}
+
+.duration-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+}
+
+.duration-input {
+  width: 60px;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.label-modal-content {
+  width: 400px;
+}

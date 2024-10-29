@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return this.hslToHex(hue, 70, 90);
       }
 
-      const existingHues = savedRanges.map(range => 
+      const existingHues = savedRanges.map(range =>
         this.getHueFromColor(range.color)
       );
 
@@ -255,10 +255,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <div class="duration-control">
             <label>Duration:</label>
-            <input type="number" 
-                  id="rangeDuration" 
-                  value="${duration}" 
-                  min="1" 
+            <input type="number"
+                  id="rangeDuration"
+                  value="${duration}"
+                  min="1"
                   class="duration-input">
             <span>days</span>
           </div>
@@ -286,8 +286,8 @@ document.addEventListener("DOMContentLoaded", () => {
       newEndDate.setDate(startDate.getDate() + newDuration - 1);
       endDate.setTime(newEndDate.getTime());
 
-      endDateValue.textContent = newEndDate.toLocaleDateString('en-US', { 
-        month: 'long', 
+      endDateValue.textContent = newEndDate.toLocaleDateString('en-US', {
+        month: 'long',
         day: 'numeric'
       });
     });
@@ -331,6 +331,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateRangeDisplay() {
     const selectedMonth = parseInt(monthPicker.value);
     const selectedYear = parseInt(yearPicker.value);
+    const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
+    const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
 
     document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
       const day = dayCell.dataset.day;
@@ -344,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
       dayCell.style.opacity = "1";
 
       // Remove any existing classes
-      dayCell.classList.remove('range-start', 'range-end');
+      dayCell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
 
       // Create a Date object for the current cell
       const cellDate = new Date(selectedYear, selectedMonth, parseInt(day));
@@ -365,51 +367,70 @@ document.addEventListener("DOMContentLoaded", () => {
         dayCell.style.backgroundColor = matchingRanges[0].color;
       }
 
-      // Add start/end indicators
+      // Check for ranges continuing to other months
       matchingRanges.forEach(range => {
         const startDate = new Date(range.startDate);
         const endDate = new Date(range.endDate);
 
-        if (startDate.getDate() === parseInt(day) && 
-            startDate.getMonth() === selectedMonth && 
-            startDate.getFullYear() === selectedYear) {
-          dayCell.classList.add('range-start');
+        // Add continuation indicators
+        if (parseInt(day) === 1 && startDate < firstDayOfMonth) {
+          dayCell.classList.add('range-continues-left');
+        }
 
-          // Add label for range start
+        if (parseInt(day) === lastDayOfMonth.getDate() && endDate > lastDayOfMonth) {
+          dayCell.classList.add('range-continues-right');
+        }
+
+        const isStart = startDate.getDate() === parseInt(day) &&
+                       startDate.getMonth() === selectedMonth &&
+                       startDate.getFullYear() === selectedYear;
+        const isEnd = endDate.getDate() === parseInt(day) &&
+                     endDate.getMonth() === selectedMonth &&
+                     endDate.getFullYear() === selectedYear;
+
+        if (isStart) {
+          dayCell.classList.add('range-start');
+        }
+        if (isEnd) {
+          dayCell.classList.add('range-end');
+        }
+
+        // Show label if this is either the start date or the first day of the month for an ongoing range
+        if (isStart || (parseInt(day) === 1 &&
+            cellDate > startDate &&
+            cellDate <= endDate)) {
           const label = document.createElement("div");
           label.className = "range-label";
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
 
-          const deleteBtn = document.createElement("button");
-          deleteBtn.className = "delete-range";
-          deleteBtn.innerHTML = "×";
+          // Only add delete button if this is the start date
+          if (isStart) {
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "delete-range";
+            deleteBtn.innerHTML = "×";
 
-          deleteBtn.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            e.stopImmediatePropagation();
-          });
+            deleteBtn.addEventListener('mousedown', (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            });
 
-          deleteBtn.addEventListener('mouseup', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            e.stopImmediatePropagation();
+            deleteBtn.addEventListener('mouseup', (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              e.stopImmediatePropagation();
 
-            savedRanges = savedRanges.filter(r => r.id !== range.id);
-            saveRanges();
-            updateRangeDisplay();
-          });
+              savedRanges = savedRanges.filter(r => r.id !== range.id);
+              saveRanges();
+              updateRangeDisplay();
+            });
 
-          label.appendChild(deleteBtn);
+            label.appendChild(deleteBtn);
+          }
+
           labelsContainer.appendChild(label);
-        }
-
-        if (endDate.getDate() === parseInt(day) && 
-            endDate.getMonth() === selectedMonth && 
-            endDate.getFullYear() === selectedYear) {
-          dayCell.classList.add('range-end');
         }
       });
     });

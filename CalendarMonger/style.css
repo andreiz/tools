@@ -212,6 +212,34 @@ html {
   position: relative;
 }
 
+.range-continues-left::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 8px solid #666;
+  opacity: 0.6;
+}
+
+.range-continues-right::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid #666;
+  opacity: 0.6;
+}
+
 .range-start::before {
   content: '';
   position: absolute;
@@ -219,7 +247,7 @@ html {
   left: 0;
   border-top: 8px solid #666;
   border-right: 8px solid transparent;
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 .range-end::after {
@@ -229,7 +257,7 @@ html {
   right: 0;
   border-bottom: 8px solid #666;
   border-left: 8px solid transparent;
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 .date-controls {

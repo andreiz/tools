@@ -126,9 +126,17 @@ html {
 
 .small-month .calendar-day {
   min-height: 50px;
+  position: relative;
+  overflow: visible;
 }
 
 .small-month .day-number {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 0 2px;
+  border-radius: 2px;
+  z-index: 2;
   font-size: 0.85rem;
 }
 
@@ -305,4 +313,32 @@ html {
 
 .label-modal-content {
   width: 400px;
+}
+
+/* Small Month Range Styles */
+.small-month .range-start::before,
+.small-month .range-end::after {
+  border-width: 4px;
+}
+
+.small-month .range-continues-left::before,
+.small-month .range-continues-right::after {
+  border-width: 3px 4px;
+}
+
+.small-month-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: rgb(95, 95, 95);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  text-align: center;
+  opacity: 0.9;
+  pointer-events: none;
 }

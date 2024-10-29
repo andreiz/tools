@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return date.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
-  function createCalendarDay(day) {
+  function createCalendarDay(day, year, month) {
     const cell = document.createElement("div");
     cell.className = "calendar-day";
     if (day !== null) {
@@ -215,16 +215,18 @@ document.addEventListener("DOMContentLoaded", () => {
       dayNumber.className = "day-number";
       dayNumber.textContent = day;
       cell.appendChild(dayNumber);
-
+  
       const labelsContainer = document.createElement("div");
       labelsContainer.className = "day-labels";
       cell.appendChild(labelsContainer);
-
+  
       const dayCount = document.createElement("div");
       dayCount.className = "selection-count";
       cell.appendChild(dayCount);
-
+  
       cell.setAttribute("data-day", day);
+      cell.setAttribute("data-year", year);
+      cell.setAttribute("data-month", month);
     }
     return cell;
   }
@@ -328,111 +330,97 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function updateRangeDisplay() {
-    const selectedMonth = parseInt(monthPicker.value);
-    const selectedYear = parseInt(yearPicker.value);
-    const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
-    const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
-
-    document.querySelectorAll("#selectedMonth .calendar-day").forEach(dayCell => {
-      const day = dayCell.dataset.day;
-      if (!day) return;
-
-      // Clear all existing content and styling
-      const labelsContainer = dayCell.querySelector(".day-labels");
-      labelsContainer.innerHTML = "";
-      dayCell.style.backgroundColor = "";
-      dayCell.style.background = "";
-      dayCell.style.opacity = "1";
-
-      // Remove any existing classes
-      dayCell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
-
-      // Create a Date object for the current cell
-      const cellDate = new Date(selectedYear, selectedMonth, parseInt(day));
-      cellDate.setHours(12, 0, 0, 0);
-
-      // Find ranges that include this date
-      const matchingRanges = savedRanges.filter(range => {
-        const startDate = new Date(range.startDate);
-        const endDate = new Date(range.endDate);
-        return cellDate >= startDate && cellDate <= endDate;
-      });
-
-      // Apply background colors
-      if (matchingRanges.length > 1) {
-        const gradientColors = matchingRanges.map(r => r.color);
-        dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
-      } else if (matchingRanges.length === 1) {
-        dayCell.style.backgroundColor = matchingRanges[0].color;
-      }
-
-      // Check for ranges continuing to other months
-      matchingRanges.forEach(range => {
-        const startDate = new Date(range.startDate);
-        const endDate = new Date(range.endDate);
-
-        // Add continuation indicators
-        if (parseInt(day) === 1 && startDate < firstDayOfMonth) {
-          dayCell.classList.add('range-continues-left');
-        }
-
-        if (parseInt(day) === lastDayOfMonth.getDate() && endDate > lastDayOfMonth) {
-          dayCell.classList.add('range-continues-right');
-        }
-
-        const isStart = startDate.getDate() === parseInt(day) &&
-                       startDate.getMonth() === selectedMonth &&
-                       startDate.getFullYear() === selectedYear;
-        const isEnd = endDate.getDate() === parseInt(day) &&
-                     endDate.getMonth() === selectedMonth &&
-                     endDate.getFullYear() === selectedYear;
-
-        if (isStart) {
-          dayCell.classList.add('range-start');
-        }
-        if (isEnd) {
-          dayCell.classList.add('range-end');
-        }
-
-        // Show label if this is either the start date or the first day of the month for an ongoing range
-        if (isStart || (parseInt(day) === 1 &&
-            cellDate > startDate &&
-            cellDate <= endDate)) {
+  function findMatchingRanges(cellDate) {
+    const ranges = savedRanges.filter(range => {
+      const startDate = new Date(range.startDate);
+      const endDate = new Date(range.endDate);
+      return cellDate >= startDate && cellDate <= endDate;
+    });
+    return ranges;
+  }
+  
+  // Create a shared function for applying range styling
+  function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
+    if (matchingRanges.length > 1) {
+      const gradientColors = matchingRanges.map(r => r.color);
+      dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
+    } else if (matchingRanges.length === 1) {
+      dayCell.style.backgroundColor = matchingRanges[0].color;
+    }
+  
+    const year = parseInt(dayCell.dataset.year);
+    const month = parseInt(dayCell.dataset.month);
+    const day = parseInt(dayCell.dataset.day);
+  
+    matchingRanges.forEach(range => {
+      const startDate = new Date(range.startDate);
+      const endDate = new Date(range.endDate);
+      
+      const isStart = startDate.getDate() === day && 
+                     startDate.getMonth() === month && 
+                     startDate.getFullYear() === year;
+      const isEnd = endDate.getDate() === day && 
+                   endDate.getMonth() === month && 
+                   endDate.getFullYear() === year;
+  
+      if (isStart) {
+        dayCell.classList.add('range-start');
+        
+        // Add label for range start in both main and small months
+        const labelsContainer = dayCell.querySelector(".day-labels");
+        if (isSmallMonth) {
+          const label = document.createElement("div");
+          label.className = "small-month-label";
+          label.textContent = range.label;
+          labelsContainer.appendChild(label);
+        } else {
           const label = document.createElement("div");
           label.className = "range-label";
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
-
-          // Only add delete button if this is the start date
-          if (isStart) {
-            const deleteBtn = document.createElement("button");
-            deleteBtn.className = "delete-range";
-            deleteBtn.innerHTML = "×";
-
-            deleteBtn.addEventListener('mousedown', (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              e.stopImmediatePropagation();
-            });
-
-            deleteBtn.addEventListener('mouseup', (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              e.stopImmediatePropagation();
-
-              savedRanges = savedRanges.filter(r => r.id !== range.id);
-              saveRanges();
-              updateRangeDisplay();
-            });
-
-            label.appendChild(deleteBtn);
-          }
-
+          
+          // Only add delete button in main month view
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-range";
+          deleteBtn.innerHTML = "×";
+  
+          deleteBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          });
+  
+          deleteBtn.addEventListener('mouseup', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+  
+            savedRanges = savedRanges.filter(r => r.id !== range.id);
+            saveRanges();
+            updateCalendar();
+          });
+  
+          label.appendChild(deleteBtn);
           labelsContainer.appendChild(label);
         }
-      });
+      }
+  
+      if (isEnd) {
+        dayCell.classList.add('range-end');
+      }
+  
+      // Add continuation indicators
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      
+      if (day === 1 && startDate < firstDayOfMonth) {
+        dayCell.classList.add('range-continues-left');
+      }
+      
+      if (day === lastDayOfMonth.getDate() && endDate > lastDayOfMonth) {
+        dayCell.classList.add('range-continues-right');
+      }
     });
   }
 
@@ -456,34 +444,30 @@ document.addEventListener("DOMContentLoaded", () => {
       isDragging = false;
       selectionStart = null;
       selectionEnd = null;
-
+  
       document.querySelectorAll(".selection-count").forEach(counter => {
         counter.textContent = "";
       });
-
+  
       document.querySelectorAll(".drag-highlight").forEach(cell => {
         cell.classList.remove("drag-highlight");
       });
-
+  
       firstCell = null;
     };
-
+  
     if (selectionStart && selectionEnd) {
       try {
-        // Ensure we use the smaller number as start
         const startDay = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
         const endDay = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
-
+  
         const result = await createLabelInput(startDay, endDay);
         const newRange = DateRange.create(result.startDate, result.endDate, result.label);
-
+  
         // Add to existing ranges
         savedRanges = [...savedRanges, newRange];
         saveRanges();
-        updateRangeDisplay();
-
-        console.log('Added new range:', newRange);
-        console.log('Current ranges:', savedRanges);
+        updateCalendar(); // Update all month views instead of just updateRangeDisplay
       } catch (e) {
         console.error('Error in finalizeDateRange:', e);
       } finally {
@@ -499,34 +483,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const firstDay = getFirstDayOfMonth(year, month);
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
-
+    const isSmallMonth = elementId !== "selectedMonth";
+  
     const monthElement = document.getElementById(elementId);
     clearCalendar(monthElement);
     createWeekdayLabels(monthElement);
-
+  
     // Create empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
-      monthElement.appendChild(createCalendarDay(null));
+      monthElement.appendChild(createCalendarDay(null, year, month));
     }
-
+  
     // Create cells for each day of the month
     for (let i = 1; i <= daysInMonth; i++) {
-      const cell = monthElement.appendChild(createCalendarDay(i));
+      const cell = monthElement.appendChild(createCalendarDay(i, year, month));
       if (isCurrentMonth && i === today.getDate()) {
         cell.classList.add("today-highlight");
       }
+  
+      // Clear any existing styling
+      cell.style.backgroundColor = "";
+      cell.style.background = "";
+      cell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
+      const labelsContainer = cell.querySelector(".day-labels");
+      labelsContainer.innerHTML = "";
+  
+      // Add range display for all month views
+      const cellDate = new Date(year, month, i);
+      cellDate.setHours(12, 0, 0, 0);
+      const matchingRanges = findMatchingRanges(cellDate);
+      applyRangeStyling(cell, matchingRanges, isSmallMonth);
     }
-
+  
     // Create empty cells to complete the last week if needed
     const totalDays = firstDay + daysInMonth;
     const remainingCells = (7 - (totalDays % 7)) % 7;
     for (let i = 0; i < remainingCells; i++) {
-      monthElement.appendChild(createCalendarDay(null));
-    }
-
-    // Update ranges if this is the main month display
-    if (elementId === "selectedMonth") {
-      updateRangeDisplay();
+      monthElement.appendChild(createCalendarDay(null, year, month));
     }
   };
 

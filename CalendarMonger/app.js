@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const monthPicker = document.getElementById("monthPicker");
   const yearPicker = document.getElementById("yearPicker");
   const todayButton = document.getElementById("todayButton");
-  const clearRangesButton = document.getElementById("clearRangesButton");
 
   let isDragging = false;
   let selectionStart = null;
@@ -561,12 +560,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateCalendar();
   });
 
-  clearRangesButton.addEventListener("click", () => {
-    savedRanges = [];
-    localStorage.removeItem('calendarRanges');
-    updateCalendar();
-  });
-
   // Mouse event handlers for date selection
   const selectedContainer = document.getElementById("selectedMonth");
 
@@ -725,7 +718,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateExportButtonState() {
-    const exportButton = document.getElementById('exportRangesBtn');
+    const exportButton = document.getElementById('exportBtn');
     if (exportButton) {
       exportButton.disabled = savedRanges.length === 0;
     }
@@ -733,21 +726,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Function to set up the import/export UI
   function setupImportExport() {
+    // Find the top controls container
     const controlsContainer = document.querySelector('.flex.justify-end.items-center.mb-4');
+    controlsContainer.className = 'flex justify-between items-center mb-4';
 
-    const importExportContainer = document.createElement('div');
-    importExportContainer.className = 'flex gap-2 ml-4';
+    // Create left side container for import/export/clear
+    const leftControls = document.createElement('div');
+    leftControls.className = 'flex gap-2';
 
-    // Create export button with id
-    const exportButton = document.createElement('button');
-    exportButton.id = 'exportRangesBtn';  // Add id for easy reference
-    exportButton.textContent = 'Export Ranges';
-    exportButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed';
-    exportButton.addEventListener('click', exportRanges);
+    // Create import button
+    const importButton = document.createElement('button');
+    importButton.textContent = 'Import';
+    importButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded';
 
-    // Set initial disabled state
-    exportButton.disabled = savedRanges.length === 0;
-
+    // Create hidden file input
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.json';
@@ -759,15 +751,93 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const importButton = document.createElement('button');
-    importButton.textContent = 'Import Ranges';
-    importButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded';
     importButton.addEventListener('click', () => fileInput.click());
 
-    importExportContainer.appendChild(exportButton);
-    importExportContainer.appendChild(importButton);
-    importExportContainer.appendChild(fileInput);
-    controlsContainer.appendChild(importExportContainer);
+    // Create export button
+    const exportButton = document.createElement('button');
+    exportButton.id = 'exportBtn';
+    exportButton.textContent = 'Export';
+    exportButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed';
+    exportButton.addEventListener('click', exportRanges);
+    exportButton.disabled = savedRanges.length === 0;
+
+    // Create clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'clearBtn';
+    clearBtn.textContent = 'Clear';
+    clearBtn.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-red-600';
+
+    // Create a styled confirmation dialog
+    function showClearConfirmation() {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center';
+      modal.style.zIndex = '1000';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bg-white rounded-lg p-6 max-w-sm mx-4';
+      dialog.innerHTML = `
+        <h3 class="text-lg font-bold mb-4">Clear All Data?</h3>
+        <p class="text-gray-600 mb-6">This will delete all saved ranges. This action cannot be undone.</p>
+        <div class="flex justify-end gap-3">
+          <button class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" id="cancelClear">Cancel</button>
+          <button class="px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white" id="confirmClear">Clear All</button>
+        </div>
+      `;
+
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+
+      // Handle clicks
+      const handleCancel = () => {
+        document.body.removeChild(modal);
+      };
+
+      const handleConfirm = () => {
+        savedRanges = [];
+        localStorage.removeItem('calendarRanges');
+        updateRangesAndUI();
+        document.body.removeChild(modal);
+      };
+
+      // Close on background click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) handleCancel();
+      });
+
+      // Close on Escape key
+      document.addEventListener('keydown', function closeOnEscape(e) {
+        if (e.key === 'Escape') {
+          handleCancel();
+          document.removeEventListener('keydown', closeOnEscape);
+        }
+      });
+
+      dialog.querySelector('#cancelClear').addEventListener('click', handleCancel);
+      dialog.querySelector('#confirmClear').addEventListener('click', handleConfirm);
+    }
+
+    clearBtn.addEventListener('click', showClearConfirmation);
+
+    // Create right side container for existing controls
+    const rightControls = document.createElement('div');
+    rightControls.className = 'flex gap-2';
+
+    // Move existing month/year controls to right side
+    const existingControls = Array.from(controlsContainer.children);
+    existingControls.forEach(control => {
+      rightControls.appendChild(control);
+    });
+
+    // Add all buttons to left controls
+    leftControls.appendChild(importButton);
+    leftControls.appendChild(exportButton);
+    leftControls.appendChild(clearBtn);
+    leftControls.appendChild(fileInput);
+
+    // Clear and rebuild controls container
+    controlsContainer.innerHTML = '';
+    controlsContainer.appendChild(leftControls);
+    controlsContainer.appendChild(rightControls);
   }
 
   function updateRangesAndUI() {

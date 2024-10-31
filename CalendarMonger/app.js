@@ -654,7 +654,7 @@ document.addEventListener("DOMContentLoaded", () => {
             },
           }],
           startIn: 'documents',
-          id: 'calendarRanges'  // This helps browser remember the last used directory
+          id: 'calendarRanges'
         };
 
         const handle = await window.showSaveFilePicker(opts);
@@ -662,15 +662,20 @@ document.addEventListener("DOMContentLoaded", () => {
         await writable.write(blob);
         await writable.close();
       } else {
-        // Fallback for browsers that don't support File System Access API
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'calendar-ranges.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Show filename dialog for browsers without File System Access API
+        const filename = await showFilenameDialog();
+
+        // If user didn't cancel, proceed with download
+        if (filename) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -715,6 +720,71 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
     reader.readAsText(file);
+  }
+
+  function showFilenameDialog() {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center';
+      modal.style.zIndex = '1000';
+
+      const dialog = document.createElement('div');
+      dialog.className = 'bg-white rounded-lg p-6 max-w-sm mx-4';
+      dialog.innerHTML = `
+        <h3 class="text-lg font-bold mb-4">Save As</h3>
+        <div class="mb-4">
+          <input type="text"
+                 id="filenameInput"
+                 value="calendar-ranges.json"
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500">
+        </div>
+        <div class="flex justify-end gap-3">
+          <button class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300" id="cancelSave">Cancel</button>
+          <button class="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white" id="confirmSave">Save</button>
+        </div>
+      `;
+
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+
+      // Focus the input and select filename (without extension)
+      const input = dialog.querySelector('#filenameInput');
+      input.focus();
+      input.setSelectionRange(0, input.value.lastIndexOf('.'));
+
+      const handleCancel = () => {
+        document.body.removeChild(modal);
+        resolve(null);
+      };
+
+      const handleConfirm = () => {
+        const filename = input.value.trim();
+        if (filename) {
+          document.body.removeChild(modal);
+          resolve(filename);
+        } else {
+          input.focus();
+        }
+      };
+
+      // Close on background click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) handleCancel();
+      });
+
+      // Handle Enter and Escape keys
+      dialog.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleConfirm();
+        } else if (e.key === 'Escape') {
+          handleCancel();
+        }
+      });
+
+      dialog.querySelector('#cancelSave').addEventListener('click', handleCancel);
+      dialog.querySelector('#confirmSave').addEventListener('click', handleConfirm);
+    });
   }
 
   function updateExportButtonState() {

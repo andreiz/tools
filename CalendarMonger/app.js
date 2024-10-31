@@ -215,15 +215,15 @@ document.addEventListener("DOMContentLoaded", () => {
       dayNumber.className = "day-number";
       dayNumber.textContent = day;
       cell.appendChild(dayNumber);
-  
+
       const labelsContainer = document.createElement("div");
       labelsContainer.className = "day-labels";
       cell.appendChild(labelsContainer);
-  
+
       const dayCount = document.createElement("div");
       dayCount.className = "selection-count";
       cell.appendChild(dayCount);
-  
+
       cell.setAttribute("data-day", day);
       cell.setAttribute("data-year", year);
       cell.setAttribute("data-month", month);
@@ -247,11 +247,11 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="date-controls">
           <div class="dates-container">
             <div class="date-row">
-              <div class="date-label">Start Date:</div>
+              <div class="date-label">Start:</div>
               <div class="date-value">${startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
             </div>
             <div class="date-row">
-              <div class="date-label">End Date:</div>
+              <div class="date-label">End:</div>
               <div class="date-value">${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
             </div>
           </div>
@@ -338,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     return ranges;
   }
-  
+
   // Create a shared function for applying range styling
   function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
     if (matchingRanges.length > 1) {
@@ -347,25 +347,25 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (matchingRanges.length === 1) {
       dayCell.style.backgroundColor = matchingRanges[0].color;
     }
-  
+
     const year = parseInt(dayCell.dataset.year);
     const month = parseInt(dayCell.dataset.month);
     const day = parseInt(dayCell.dataset.day);
-  
+
     matchingRanges.forEach(range => {
       const startDate = new Date(range.startDate);
       const endDate = new Date(range.endDate);
-      
-      const isStart = startDate.getDate() === day && 
-                     startDate.getMonth() === month && 
+
+      const isStart = startDate.getDate() === day &&
+                     startDate.getMonth() === month &&
                      startDate.getFullYear() === year;
-      const isEnd = endDate.getDate() === day && 
-                   endDate.getMonth() === month && 
+      const isEnd = endDate.getDate() === day &&
+                   endDate.getMonth() === month &&
                    endDate.getFullYear() === year;
-  
+
       if (isStart) {
         dayCell.classList.add('range-start');
-        
+
         // Add label for range start in both main and small months
         const labelsContainer = dayCell.querySelector(".day-labels");
         if (isSmallMonth) {
@@ -379,45 +379,44 @@ document.addEventListener("DOMContentLoaded", () => {
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
-          
+
           // Only add delete button in main month view
           const deleteBtn = document.createElement("button");
           deleteBtn.className = "delete-range";
           deleteBtn.innerHTML = "×";
-  
+
           deleteBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
             e.stopImmediatePropagation();
           });
-  
+
           deleteBtn.addEventListener('mouseup', (e) => {
             e.stopPropagation();
             e.preventDefault();
             e.stopImmediatePropagation();
-  
+
             savedRanges = savedRanges.filter(r => r.id !== range.id);
-            saveRanges();
-            updateCalendar();
+            updateRangesAndUI();
           });
-  
+
           label.appendChild(deleteBtn);
           labelsContainer.appendChild(label);
         }
       }
-  
+
       if (isEnd) {
         dayCell.classList.add('range-end');
       }
-  
+
       // Add continuation indicators
       const firstDayOfMonth = new Date(year, month, 1);
       const lastDayOfMonth = new Date(year, month + 1, 0);
-      
+
       if (day === 1 && startDate < firstDayOfMonth) {
         dayCell.classList.add('range-continues-left');
       }
-      
+
       if (day === lastDayOfMonth.getDate() && endDate > lastDayOfMonth) {
         dayCell.classList.add('range-continues-right');
       }
@@ -444,30 +443,28 @@ document.addEventListener("DOMContentLoaded", () => {
       isDragging = false;
       selectionStart = null;
       selectionEnd = null;
-  
+
       document.querySelectorAll(".selection-count").forEach(counter => {
         counter.textContent = "";
       });
-  
+
       document.querySelectorAll(".drag-highlight").forEach(cell => {
         cell.classList.remove("drag-highlight");
       });
-  
+
       firstCell = null;
     };
-  
+
     if (selectionStart && selectionEnd) {
       try {
         const startDay = Math.min(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
         const endDay = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
-  
+
         const result = await createLabelInput(startDay, endDay);
         const newRange = DateRange.create(result.startDate, result.endDate, result.label);
-  
-        // Add to existing ranges
+
         savedRanges = [...savedRanges, newRange];
-        saveRanges();
-        updateCalendar(); // Update all month views instead of just updateRangeDisplay
+        updateRangesAndUI();
       } catch (e) {
         console.error('Error in finalizeDateRange:', e);
       } finally {
@@ -484,37 +481,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
     const isSmallMonth = elementId !== "selectedMonth";
-  
+
     const monthElement = document.getElementById(elementId);
     clearCalendar(monthElement);
     createWeekdayLabels(monthElement);
-  
+
     // Create empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       monthElement.appendChild(createCalendarDay(null, year, month));
     }
-  
+
     // Create cells for each day of the month
     for (let i = 1; i <= daysInMonth; i++) {
       const cell = monthElement.appendChild(createCalendarDay(i, year, month));
       if (isCurrentMonth && i === today.getDate()) {
         cell.classList.add("today-highlight");
       }
-  
+
       // Clear any existing styling
       cell.style.backgroundColor = "";
       cell.style.background = "";
       cell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
       const labelsContainer = cell.querySelector(".day-labels");
       labelsContainer.innerHTML = "";
-  
+
       // Add range display for all month views
       const cellDate = new Date(year, month, i);
       cellDate.setHours(12, 0, 0, 0);
       const matchingRanges = findMatchingRanges(cellDate);
       applyRangeStyling(cell, matchingRanges, isSmallMonth);
     }
-  
+
     // Create empty cells to complete the last week if needed
     const totalDays = firstDay + daysInMonth;
     const remainingCells = (7 - (totalDays % 7)) % 7;
@@ -567,7 +564,7 @@ document.addEventListener("DOMContentLoaded", () => {
   clearRangesButton.addEventListener("click", () => {
     savedRanges = [];
     localStorage.removeItem('calendarRanges');
-    updateRangeDisplay();
+    updateCalendar();
   });
 
   // Mouse event handlers for date selection
@@ -648,6 +645,137 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initial calendar setup
+  async function exportRanges() {
+    const dataStr = JSON.stringify(savedRanges, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+
+    try {
+      // Use the File System Access API if available
+      if ('showSaveFilePicker' in window) {
+        const opts = {
+          suggestedName: 'calendar-ranges.json',
+          types: [{
+            description: 'JSON File',
+            accept: {
+              'application/json': ['.json'],
+            },
+          }],
+          startIn: 'documents',
+          id: 'calendarRanges'  // This helps browser remember the last used directory
+        };
+
+        const handle = await window.showSaveFilePicker(opts);
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'calendar-ranges.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Error saving file:', err);
+        alert('Error saving file: ' + err.message);
+      }
+    }
+  }
+
+  function importRanges(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const importedRanges = JSON.parse(e.target.result);
+
+        if (!Array.isArray(importedRanges)) {
+          throw new Error('Invalid format: Expected an array');
+        }
+
+        // Validate each range object
+        importedRanges.forEach(range => {
+          if (!range.id || !range.startDate || !range.endDate || !range.label || !range.color) {
+            throw new Error('Invalid range format');
+          }
+          // Validate dates
+          new Date(range.startDate);
+          new Date(range.endDate);
+        });
+
+        const importCount = importedRanges.length;
+        if (importCount === 0) {
+          alert('No ranges found in file');
+          return;
+        }
+
+        savedRanges = [...savedRanges, ...importedRanges];
+        updateRangesAndUI();
+
+        alert(`Successfully imported ${importCount} range${importCount === 1 ? '' : 's'}`);
+      } catch (error) {
+        alert('Error importing ranges: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function updateExportButtonState() {
+    const exportButton = document.getElementById('exportRangesBtn');
+    if (exportButton) {
+      exportButton.disabled = savedRanges.length === 0;
+    }
+  }
+
+  // Function to set up the import/export UI
+  function setupImportExport() {
+    const controlsContainer = document.querySelector('.flex.justify-end.items-center.mb-4');
+
+    const importExportContainer = document.createElement('div');
+    importExportContainer.className = 'flex gap-2 ml-4';
+
+    // Create export button with id
+    const exportButton = document.createElement('button');
+    exportButton.id = 'exportRangesBtn';  // Add id for easy reference
+    exportButton.textContent = 'Export Ranges';
+    exportButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed';
+    exportButton.addEventListener('click', exportRanges);
+
+    // Set initial disabled state
+    exportButton.disabled = savedRanges.length === 0;
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        importRanges(e.target.files[0]);
+        e.target.value = '';
+      }
+    });
+
+    const importButton = document.createElement('button');
+    importButton.textContent = 'Import Ranges';
+    importButton.className = 'bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded';
+    importButton.addEventListener('click', () => fileInput.click());
+
+    importExportContainer.appendChild(exportButton);
+    importExportContainer.appendChild(importButton);
+    importExportContainer.appendChild(fileInput);
+    controlsContainer.appendChild(importExportContainer);
+  }
+
+  function updateRangesAndUI() {
+    saveRanges();
+    updateCalendar();
+    updateExportButtonState();
+  }
+
+  setupImportExport();
   updateCalendar();
 });

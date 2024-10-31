@@ -283,17 +283,20 @@ html {
 .date-row {
   display: flex;
   align-items: center;
-  margin: 8px 0;
-  gap: 10px;
+  margin: 4px 0;
+  gap: 4px; 
 }
 
 .date-label {
-  width: 80px;
+  width: 45px;
   font-weight: bold;
 }
 
 .date-value {
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .duration-control {
@@ -341,4 +344,23 @@ html {
   text-align: center;
   opacity: 0.9;
   pointer-events: none;
+}
+
+.flex.justify-end.items-center.mb-4 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flex.gap-2:not(:first-child) {
+  margin-left: 16px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

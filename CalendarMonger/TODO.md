@@ -1,6 +1,7 @@
+- Small month range label not displayed
+- Clear all ranges button is broken now
 - Fix clicking on outside dialog clearing the selection
 - Make the colors a bit more vibrant (adjust saturation/lightness)
-- Add visual indicators when a range continues into the next/previous month
 - Add a way to edit existing range labels
 - Add a tooltip showing the full date range when hovering over a label
 - Add a way to filter or search ranges

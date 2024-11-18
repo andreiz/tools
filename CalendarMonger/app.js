@@ -553,6 +553,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
   monthPicker.addEventListener("change", updateCalendar);
   yearPicker.addEventListener("change", updateCalendar);
+  
+  // Navigation button handlers
+  document.getElementById("prevMonthBtn").addEventListener("click", () => {
+    const currentMonth = parseInt(monthPicker.value);
+    const currentYear = parseInt(yearPicker.value);
+    
+    if (currentMonth === 0) {
+      monthPicker.value = "11";
+      yearPicker.value = (currentYear - 1).toString();
+    } else {
+      monthPicker.value = (currentMonth - 1).toString();
+    }
+    updateCalendar();
+  });
+
+  document.getElementById("nextMonthBtn").addEventListener("click", () => {
+    const currentMonth = parseInt(monthPicker.value);
+    const currentYear = parseInt(yearPicker.value);
+    
+    if (currentMonth === 11) {
+      monthPicker.value = "0";
+      yearPicker.value = (currentYear + 1).toString();
+    } else {
+      monthPicker.value = (currentMonth + 1).toString();
+    }
+    updateCalendar();
+  });
+
   todayButton.addEventListener("click", () => {
     const today = new Date();
     monthPicker.value = today.getMonth().toString();

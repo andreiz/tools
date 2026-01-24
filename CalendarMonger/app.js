@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const monthPicker = document.getElementById("monthPicker");
   const yearPicker = document.getElementById("yearPicker");
   const todayButton = document.getElementById("todayButton");
+  const colorPicker = window.ColorPicker;
 
   let isDragging = false;
   let selectionStart = null;
@@ -33,122 +34,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return start1 <= end2 && start2 <= end1;
     },
 
-    // Convert HSL to RGB hex color
-    hslToHex: function(h, s, l) {
-      let r, g, b;
-      h /= 360;
-      s /= 100;
-      l /= 100;
-
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-
-      const toHex = x => {
-        const hex = Math.round(x * 255).toString(16);
-        return hex.length === 1 ? '0' + hex : hex;
-      };
-
-      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    },
-
-    // Extract hue from HSL color string
-    getHueFromColor: function(color) {
-      // Handle hex colors
-      if (color.startsWith('#')) {
-        // Convert hex to RGB
-        const r = parseInt(color.slice(1, 3), 16) / 255;
-        const g = parseInt(color.slice(3, 5), 16) / 255;
-        const b = parseInt(color.slice(5, 7), 16) / 255;
-
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        let h;
-
-        if (max === min) {
-          return 0; // achromatic
-        }
-
-        const d = max - min;
-        switch (max) {
-          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-          case g: h = (b - r) / d + 2; break;
-          case b: h = (r - g) / d + 4; break;
-        }
-
-        return Math.round(h * 60);
-      }
-      // Handle hsl colors
-      if (color.startsWith('hsl')) {
-        return parseInt(color.match(/hsl\((\d+)/)[1]);
-      }
-      return 0;
-    },
-
-    // Predefined aesthetically pleasing hues
-    baseHues: [
-      0,    // Red
-      120,  // Green
-      240,  // Blue
-      60,   // Yellow
-      180,  // Cyan
-      300,  // Magenta
-      30,   // Orange
-      90,   // Yellow-green
-      150,  // Blue-green
-      210,  // Blue-purple
-      270,  // Purple
-      330   // Pink
-    ],
-
     getDistinctHueColor: function(startDate, endDate) {
-      if (savedRanges.length === 0) {
-        // First color - pick randomly from base hues
-        const hue = this.baseHues[Math.floor(Math.random() * this.baseHues.length)];
-        return this.hslToHex(hue, 70, 90);
-      }
-
-      const existingHues = savedRanges.map(range =>
-        this.getHueFromColor(range.color)
-      );
-
-      // Find the base hue that's furthest from all existing hues
-      let bestHue = 0;
-      let maxMinDistance = 0;
-
-      for (const baseHue of this.baseHues) {
-        let minDistance = 360;
-
-        for (const existingHue of existingHues) {
-          let distance = Math.abs(baseHue - existingHue);
-          if (distance > 180) {
-            distance = 360 - distance;
-          }
-          minDistance = Math.min(minDistance, distance);
-        }
-
-        if (minDistance > maxMinDistance) {
-          maxMinDistance = minDistance;
-          bestHue = baseHue;
-        }
-      }
-
-      return this.hslToHex(bestHue, 70, 90);
+      const selectedMonth = parseInt(monthPicker.value, 10);
+      const selectedYear = parseInt(yearPicker.value, 10);
+      return colorPicker.pickDistinctHueForMonth(savedRanges, selectedYear, selectedMonth);
     },
   };
 

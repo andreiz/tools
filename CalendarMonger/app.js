@@ -9,6 +9,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectionEnd = null;
   let firstCell = null;
   let savedRanges = [];
+  let isRangeDragging = false;
+  let draggedRangeId = null;
+  let draggedRangeStart = null;
+  let draggedRangeEnd = null;
+  let draggedRangeStartDay = null;
+  let pendingDragStart = null;
+  let pendingDragEnd = null;
 
   const DateRange = {
     create: function(startDate, endDate, label, color) {
@@ -227,6 +234,52 @@ document.addEventListener("DOMContentLoaded", () => {
     return ranges;
   }
 
+  function getCurrentMonthBounds() {
+    const selectedMonth = parseInt(monthPicker.value, 10);
+    const selectedYear = parseInt(yearPicker.value, 10);
+    const monthStart = new Date(selectedYear, selectedMonth, 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(selectedYear, selectedMonth + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    return { monthStart, monthEnd, selectedMonth, selectedYear };
+  }
+
+  function isRangeOverlappingMonth(startDate, endDate) {
+    const { monthStart, monthEnd } = getCurrentMonthBounds();
+    return startDate <= monthEnd && endDate >= monthStart;
+  }
+
+  function addDays(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+  }
+
+  function clearDragPreview() {
+    document.querySelectorAll("#selectedMonth .drag-preview").forEach(cell => {
+      cell.classList.remove("drag-preview");
+    });
+  }
+
+  function updateDragPreview(startDate, endDate) {
+    clearDragPreview();
+    const { selectedMonth, selectedYear } = getCurrentMonthBounds();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    document.querySelectorAll("#selectedMonth .calendar-day").forEach((dayCell) => {
+      const day = parseInt(dayCell.dataset.day, 10);
+      if (!day) return;
+
+      const cellDate = new Date(selectedYear, selectedMonth, day);
+      cellDate.setHours(12, 0, 0, 0);
+
+      if (cellDate >= start && cellDate <= end) {
+        dayCell.classList.add("drag-preview");
+      }
+    });
+  }
+
   // Create a shared function for applying range styling
   function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
     if (matchingRanges.length > 1) {
@@ -267,6 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
+          label.setAttribute('title', 'Option-drag to move range');
 
           // Only add delete button in main month view
           const deleteBtn = document.createElement("button");
@@ -286,6 +340,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
             savedRanges = savedRanges.filter(r => r.id !== range.id);
             updateRangesAndUI();
+          });
+
+          label.addEventListener('mousedown', (e) => {
+            if (!e.altKey || e.button !== 0) {
+              return;
+            }
+            e.stopPropagation();
+            e.preventDefault();
+
+            const parentCell = dayCell;
+            if (!parentCell || !parentCell.dataset.day) {
+              return;
+            }
+
+            isRangeDragging = true;
+            draggedRangeId = range.id;
+            draggedRangeStartDay = parseInt(parentCell.dataset.day, 10);
+            draggedRangeStart = new Date(range.startDate);
+            draggedRangeEnd = new Date(range.endDate);
+            pendingDragStart = null;
+            pendingDragEnd = null;
           });
 
           label.appendChild(deleteBtn);
@@ -529,6 +604,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 cell.classList.remove("drag-highlight");
             });
         }
+    }
+
+    if (isRangeDragging) {
+      isRangeDragging = false;
+      if (pendingDragStart && pendingDragEnd && draggedRangeId) {
+        if (isRangeOverlappingMonth(pendingDragStart, pendingDragEnd)) {
+          savedRanges = savedRanges.map(range => {
+            if (range.id !== draggedRangeId) return range;
+            return {
+              ...range,
+              startDate: pendingDragStart.toISOString(),
+              endDate: pendingDragEnd.toISOString()
+            };
+          });
+          updateRangesAndUI();
+        }
+      }
+      clearDragPreview();
+      draggedRangeId = null;
+      draggedRangeStart = null;
+      draggedRangeEnd = null;
+      draggedRangeStartDay = null;
+      pendingDragStart = null;
+      pendingDragEnd = null;
+    }
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isRangeDragging) return;
+
+    const targetDay = e.target.closest("#selectedMonth .calendar-day");
+    if (!targetDay || !targetDay.dataset.day) return;
+
+    const hoverDay = parseInt(targetDay.dataset.day, 10);
+    if (!Number.isFinite(hoverDay) || draggedRangeStartDay === null) return;
+
+    const deltaDays = hoverDay - draggedRangeStartDay;
+    const newStart = addDays(draggedRangeStart, deltaDays);
+    const newEnd = addDays(draggedRangeEnd, deltaDays);
+
+    if (isRangeOverlappingMonth(newStart, newEnd)) {
+      pendingDragStart = newStart;
+      pendingDragEnd = newEnd;
+      updateDragPreview(newStart, newEnd);
+    } else {
+      pendingDragStart = null;
+      pendingDragEnd = null;
+      clearDragPreview();
     }
   });
 

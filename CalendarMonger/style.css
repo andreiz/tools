@@ -59,6 +59,10 @@ html {
   background-color: rgb(224 231 255);
 }
 
+.drag-preview {
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.7);
+}
+
 .selection-count {
   position: absolute;
   bottom: 0;

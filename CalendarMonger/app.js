@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return cell;
   }
 
-  function createLabelInput(start, end, initialLabel = "") {
+  function createLabelInput(start, end, initialLabel = "", modalTitle = "Add Label for Selected Range") {
     const modal = document.createElement("div");
     modal.className = "label-modal";
 
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     modal.innerHTML = `
       <div class="label-modal-content">
-        <h3>Add Label for Selected Range</h3>
+        <h3>${modalTitle}</h3>
         <div class="date-controls">
           <div class="dates-container">
             <div class="date-row">
@@ -427,10 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
-          label.setAttribute(
-            'title',
-            `Option-drag to move range • ${durationDays} day${durationDays === 1 ? '' : 's'}`
-          );
+          label.setAttribute('title', 'Option-drag to move • Double-click to edit');
 
           // Only add delete button in main month view
           const deleteBtn = document.createElement("button");
@@ -464,7 +461,12 @@ document.addEventListener("DOMContentLoaded", () => {
             e.stopPropagation();
             e.preventDefault();
             try {
-              const result = await createLabelInput(startDate, endDate, range.label);
+              const result = await createLabelInput(
+                startDate,
+                endDate,
+                range.label,
+                "Modify Selected Range"
+              );
               savedRanges = savedRanges.map(r => {
                 if (r.id !== range.id) return r;
                 return {
@@ -608,6 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cell.style.backgroundColor = "";
       cell.style.background = "";
       cell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
+      cell.removeAttribute('title');
       cell.classList.remove('range-hover', 'drag-preview');
       delete cell.dataset.rangeIds;
       const labelsContainer = cell.querySelector(".day-labels");
@@ -738,6 +741,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetDay && targetDay.dataset.day) {
         selectionEnd = targetDay.dataset.day;
         updateSelectionHighlights();
+      }
+    }
+
+    if (!isRangeResizing) {
+      const targetDay = e.target.closest(".calendar-day");
+      if (targetDay) {
+        const edge = getCornerHitType(targetDay, e.clientX, e.clientY);
+        if (edge) {
+          targetDay.setAttribute('title', 'Option-drag corner to resize');
+        } else if (targetDay.getAttribute('title') === 'Option-drag corner to resize') {
+          targetDay.removeAttribute('title');
+        }
       }
     }
 

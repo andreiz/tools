@@ -16,6 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let draggedRangeStartDay = null;
   let pendingDragStart = null;
   let pendingDragEnd = null;
+  let isRangeResizing = false;
+  let resizeEdge = null;
 
   const DateRange = {
     create: function(startDate, endDate, label, color) {
@@ -261,6 +263,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function clearResizeHint() {
+    document.querySelectorAll("#selectedMonth .resize-hint").forEach(cell => {
+      cell.classList.remove("resize-hint");
+    });
+  }
+
   function updateDragPreview(startDate, endDate) {
     clearDragPreview();
     const { selectedMonth, selectedYear } = getCurrentMonthBounds();
@@ -280,8 +288,90 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function addRangeIdToCell(dayCell, rangeId) {
+    const existing = dayCell.dataset.rangeIds
+      ? dayCell.dataset.rangeIds.split(",")
+      : [];
+    if (!existing.includes(rangeId)) {
+      existing.push(rangeId);
+      dayCell.dataset.rangeIds = existing.join(",");
+    }
+  }
+
+  function setRangeHover(rangeId, isActive) {
+    document.querySelectorAll("#selectedMonth .calendar-day").forEach((dayCell) => {
+      const ids = dayCell.dataset.rangeIds ? dayCell.dataset.rangeIds.split(",") : [];
+      if (ids.includes(rangeId)) {
+        dayCell.classList.toggle("range-hover", isActive);
+      }
+    });
+  }
+
+  function setRangeHandleDragState(range, edge, startCell) {
+    isRangeResizing = true;
+    resizeEdge = edge;
+    draggedRangeId = range.id;
+    draggedRangeStartDay = parseInt(startCell.dataset.day, 10);
+    draggedRangeStart = new Date(range.startDate);
+    draggedRangeEnd = new Date(range.endDate);
+    pendingDragStart = null;
+    pendingDragEnd = null;
+  }
+
+  function getCornerHitType(dayCell, clientX, clientY) {
+    const rect = dayCell.getBoundingClientRect();
+    const cornerSize = 12;
+    const inLeft = clientX - rect.left <= cornerSize;
+    const inRight = rect.right - clientX <= cornerSize;
+    const inTop = clientY - rect.top <= cornerSize;
+    const inBottom = rect.bottom - clientY <= cornerSize;
+
+    if (dayCell.classList.contains("range-start") && inLeft && inTop) {
+      return "start";
+    }
+    if (dayCell.classList.contains("range-end") && inRight && inBottom) {
+      return "end";
+    }
+    return null;
+  }
+
+  function updateRangeResizePreview(hoverDay) {
+    const { selectedMonth, selectedYear } = getCurrentMonthBounds();
+    if (!Number.isFinite(hoverDay)) return;
+
+    let newStart = new Date(draggedRangeStart);
+    let newEnd = new Date(draggedRangeEnd);
+
+    if (resizeEdge === "start") {
+      newStart = new Date(selectedYear, selectedMonth, hoverDay);
+      newStart.setHours(0, 0, 0, 0);
+      if (newStart > newEnd) {
+        newStart = new Date(newEnd);
+        newStart.setHours(0, 0, 0, 0);
+      }
+    } else if (resizeEdge === "end") {
+      newEnd = new Date(selectedYear, selectedMonth, hoverDay);
+      newEnd.setHours(23, 59, 59, 999);
+      if (newEnd < newStart) {
+        newEnd = new Date(newStart);
+        newEnd.setHours(23, 59, 59, 999);
+      }
+    }
+
+    if (isRangeOverlappingMonth(newStart, newEnd)) {
+      pendingDragStart = newStart;
+      pendingDragEnd = newEnd;
+      updateDragPreview(newStart, newEnd);
+    } else {
+      pendingDragStart = null;
+      pendingDragEnd = null;
+      clearDragPreview();
+    }
+  }
+
   // Create a shared function for applying range styling
   function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
+    matchingRanges.forEach(range => addRangeIdToCell(dayCell, range.id));
     if (matchingRanges.length > 1) {
       const gradientColors = matchingRanges.map(r => r.color);
       dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
@@ -340,6 +430,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
             savedRanges = savedRanges.filter(r => r.id !== range.id);
             updateRangesAndUI();
+          });
+
+          label.addEventListener("mouseenter", () => {
+            setRangeHover(range.id, true);
+          });
+
+          label.addEventListener("mouseleave", () => {
+            setRangeHover(range.id, false);
           });
 
           label.addEventListener('mousedown', (e) => {
@@ -465,6 +563,8 @@ document.addEventListener("DOMContentLoaded", () => {
       cell.style.backgroundColor = "";
       cell.style.background = "";
       cell.classList.remove('range-start', 'range-end', 'range-continues-left', 'range-continues-right');
+      cell.classList.remove('range-hover', 'drag-preview');
+      delete cell.dataset.rangeIds;
       const labelsContainer = cell.querySelector(".day-labels");
       labelsContainer.innerHTML = "";
 
@@ -559,6 +659,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.button === 0) {
       const targetDay = e.target.closest(".calendar-day");
       if (targetDay && targetDay.dataset.day) {
+        if (e.altKey) {
+          const edge = getCornerHitType(targetDay, e.clientX, e.clientY);
+          if (edge) {
+            const rangeId = targetDay.dataset.rangeIds
+              ? targetDay.dataset.rangeIds.split(",")[0]
+              : null;
+            if (rangeId) {
+              const range = savedRanges.find(r => r.id === rangeId);
+              if (range) {
+                e.preventDefault();
+                setRangeHandleDragState(range, edge, targetDay);
+                return;
+              }
+            }
+          }
+        }
         isDragging = true;
         selectionStart = selectionEnd = targetDay.dataset.day;
         firstCell = targetDay;
@@ -574,6 +690,21 @@ document.addEventListener("DOMContentLoaded", () => {
         selectionEnd = targetDay.dataset.day;
         updateSelectionHighlights();
       }
+    }
+
+    if (!isRangeResizing && e.altKey) {
+      const targetDay = e.target.closest(".calendar-day");
+      if (!targetDay || !targetDay.dataset.day) {
+        clearResizeHint();
+        return;
+      }
+      const edge = getCornerHitType(targetDay, e.clientX, e.clientY);
+      clearResizeHint();
+      if (edge) {
+        targetDay.classList.add("resize-hint");
+      }
+    } else if (!isRangeResizing) {
+      clearResizeHint();
     }
   });
 
@@ -604,6 +735,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 cell.classList.remove("drag-highlight");
             });
         }
+    }
+
+    if (isRangeResizing) {
+      isRangeResizing = false;
+      if (pendingDragStart && pendingDragEnd && draggedRangeId) {
+        if (isRangeOverlappingMonth(pendingDragStart, pendingDragEnd)) {
+          savedRanges = savedRanges.map(range => {
+            if (range.id !== draggedRangeId) return range;
+            return {
+              ...range,
+              startDate: pendingDragStart.toISOString(),
+              endDate: pendingDragEnd.toISOString()
+            };
+          });
+          updateRangesAndUI();
+        }
+      }
+      clearDragPreview();
+      draggedRangeId = null;
+      draggedRangeStart = null;
+      draggedRangeEnd = null;
+      draggedRangeStartDay = null;
+      pendingDragStart = null;
+      pendingDragEnd = null;
+      resizeEdge = null;
     }
 
     if (isRangeDragging) {
@@ -653,6 +809,14 @@ document.addEventListener("DOMContentLoaded", () => {
       pendingDragEnd = null;
       clearDragPreview();
     }
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isRangeResizing) return;
+    const targetDay = e.target.closest("#selectedMonth .calendar-day");
+    if (!targetDay || !targetDay.dataset.day) return;
+    const hoverDay = parseInt(targetDay.dataset.day, 10);
+    updateRangeResizePreview(hoverDay);
   });
 
   function updateSelectionHighlights() {

@@ -63,6 +63,23 @@ html {
   box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.7);
 }
 
+.range-hover {
+  outline: 2px solid rgba(16, 185, 129, 0.6);
+  outline-offset: -2px;
+}
+
+.resize-hint {
+  cursor: ew-resize;
+}
+
+.resize-hint.range-start::before {
+  border-top-color: #2563eb;
+}
+
+.resize-hint.range-end::after {
+  border-bottom-color: #2563eb;
+}
+
 .selection-count {
   position: absolute;
   bottom: 0;

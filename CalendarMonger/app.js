@@ -257,6 +257,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return next;
   }
 
+  function getRangeDurationDays(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+    const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+    return Math.round((endUtc - startUtc) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
   function clearDragPreview() {
     document.querySelectorAll("#selectedMonth .drag-preview").forEach(cell => {
       cell.classList.remove("drag-preview");
@@ -407,10 +415,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           const label = document.createElement("div");
           label.className = "range-label";
+          const durationDays = getRangeDurationDays(range.startDate, range.endDate);
           label.textContent = range.label;
           label.style.backgroundColor = range.color;
           label.setAttribute('data-range-id', range.id);
-          label.setAttribute('title', 'Option-drag to move range');
+          label.setAttribute(
+            'title',
+            `Option-drag to move range • ${durationDays} day${durationDays === 1 ? '' : 's'}`
+          );
 
           // Only add delete button in main month view
           const deleteBtn = document.createElement("button");
@@ -463,6 +475,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
           label.appendChild(deleteBtn);
           labelsContainer.appendChild(label);
+
+          const durationBadge = document.createElement("span");
+          durationBadge.className = "range-duration";
+          durationBadge.textContent = `${durationDays}d`;
+          dayCell.appendChild(durationBadge);
         }
       }
 
@@ -567,6 +584,7 @@ document.addEventListener("DOMContentLoaded", () => {
       delete cell.dataset.rangeIds;
       const labelsContainer = cell.querySelector(".day-labels");
       labelsContainer.innerHTML = "";
+      cell.querySelectorAll(".range-duration").forEach(badge => badge.remove());
 
       // Add range display for all month views
       const cellDate = new Date(year, month, i);

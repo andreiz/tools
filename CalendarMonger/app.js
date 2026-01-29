@@ -128,14 +128,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return cell;
   }
 
-  function createLabelInput(start, end) {
+  function createLabelInput(start, end, initialLabel = "") {
     const modal = document.createElement("div");
     modal.className = "label-modal";
 
     const selectedMonth = parseInt(monthPicker.value);
     const selectedYear = parseInt(yearPicker.value);
-    const startDate = new Date(selectedYear, selectedMonth, parseInt(start));
-    const endDate = new Date(selectedYear, selectedMonth, parseInt(end));
+    const startDate = start instanceof Date
+      ? new Date(start)
+      : new Date(selectedYear, selectedMonth, parseInt(start));
+    const endDate = end instanceof Date
+      ? new Date(end)
+      : new Date(selectedYear, selectedMonth, parseInt(end));
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
     const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
     modal.innerHTML = `
@@ -162,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span>days</span>
           </div>
         </div>
-        <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input">
+        <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input" value="${initialLabel}">
         <div class="modal-buttons">
           <button id="saveLabelBtn" class="primary-button">Save</button>
           <button id="cancelLabelBtn" class="secondary-button">Cancel</button>
@@ -183,6 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const newDuration = parseInt(durationInput.value) || 1;
       const newEndDate = new Date(startDate);
       newEndDate.setDate(startDate.getDate() + newDuration - 1);
+      newEndDate.setHours(23, 59, 59, 999);
       endDate.setTime(newEndDate.getTime());
 
       endDateValue.textContent = newEndDate.toLocaleDateString('en-US', {
@@ -452,6 +460,26 @@ document.addEventListener("DOMContentLoaded", () => {
             setRangeHover(range.id, false);
           });
 
+          label.addEventListener("dblclick", async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            try {
+              const result = await createLabelInput(startDate, endDate, range.label);
+              savedRanges = savedRanges.map(r => {
+                if (r.id !== range.id) return r;
+                return {
+                  ...r,
+                  label: result.label,
+                  startDate: result.startDate.toISOString(),
+                  endDate: result.endDate.toISOString()
+                };
+              });
+              updateRangesAndUI();
+            } catch (error) {
+              // User cancelled.
+            }
+          });
+
           label.addEventListener('mousedown', (e) => {
             if (!e.altKey || e.button !== 0) {
               return;
@@ -677,6 +705,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.button === 0) {
       const targetDay = e.target.closest(".calendar-day");
       if (targetDay && targetDay.dataset.day) {
+        if (e.target.closest(".range-label") || e.target.closest(".delete-range") || e.target.closest(".range-duration")) {
+          return;
+        }
         if (e.altKey) {
           const edge = getCornerHitType(targetDay, e.clientX, e.clientY);
           if (edge) {

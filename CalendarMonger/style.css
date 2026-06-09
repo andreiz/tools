@@ -213,6 +213,17 @@ html {
   border-radius: 4px;
 }
 
+.range-note-input {
+  width: 100%;
+  padding: 8px;
+  margin: 0 0 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: inherit;
+  resize: vertical;
+}
+
 /* Button Styles */
 .modal-buttons {
   display: flex;

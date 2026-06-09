@@ -11,6 +11,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let firstCell = null;
   let savedRanges = [];
 
+  // Undo/redo history. `past`/`future` hold deep-cloned snapshots of
+  // savedRanges; `baseline` is a clone of the current committed state, used so
+  // each new mutation records the state that preceded it.
+  const history = {
+    past: [],
+    future: [],
+    baseline: [],
+    limit: 50,
+  };
+
+  const cloneRanges = (ranges) => JSON.parse(JSON.stringify(ranges));
+
   // Existing-range manipulation state. `mode` is null when idle, "move" while
   // option-dragging a whole range, or "resize" while dragging a corner handle.
   const rangeDrag = {
@@ -64,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const DateRange = {
-    create: function(startDate, endDate, label, color) {
+    create: function(startDate, endDate, label, color, note) {
       // Set time to midnight for start and 23:59:59.999 for end
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
@@ -74,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         label: label,
+        note: note || "",
         color: color || this.getDistinctHueColor()
       };
     },
@@ -178,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return cell;
   }
 
-  function createLabelInput(start, end, initialLabel = "", modalTitle = "Add Label for Selected Range") {
+  function createLabelInput(start, end, initialLabel = "", modalTitle = "Add Label for Selected Range", initialNote = "") {
     const modal = document.createElement("div");
     modal.className = "label-modal";
 
@@ -220,6 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
         <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input">
+        <textarea id="rangeNote" placeholder="Notes (optional)" class="range-note-input" rows="3"></textarea>
         <div class="modal-buttons">
           <button id="saveLabelBtn" class="primary-button">Save</button>
           <button id="cancelLabelBtn" class="secondary-button">Cancel</button>
@@ -234,6 +248,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const input = modal.querySelector("#rangeLabel");
     input.value = initialLabel;
+    const noteInput = modal.querySelector("#rangeNote");
+    noteInput.value = initialNote;
     const durationInput = modal.querySelector("#rangeDuration");
     const saveBtn = modal.querySelector("#saveLabelBtn");
     const cancelBtn = modal.querySelector("#cancelLabelBtn");
@@ -260,6 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
           modal.remove();
           resolve({
             label,
+            note: noteInput.value.trim(),
             startDate,
             endDate
           });
@@ -276,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
           modal.remove();
           resolve({
             label: input.value.trim(),
+            note: noteInput.value.trim(),
             startDate,
             endDate
           });
@@ -519,13 +537,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 startDate,
                 endDate,
                 range.label,
-                "Modify Selected Range"
+                "Modify Selected Range",
+                range.note || ""
               );
               savedRanges = savedRanges.map(r => {
                 if (r.id !== range.id) return r;
                 return {
                   ...r,
                   label: result.label,
+                  note: result.note,
                   startDate: result.startDate.toISOString(),
                   endDate: result.endDate.toISOString()
                 };
@@ -623,7 +643,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const endDay = Math.max(parseInt(selectionStart, 10), parseInt(selectionEnd, 10));
 
         const result = await createLabelInput(startDay, endDay);
-        const newRange = DateRange.create(result.startDate, result.endDate, result.label);
+        const newRange = DateRange.create(result.startDate, result.endDate, result.label, undefined, result.note);
 
         savedRanges = [...savedRanges, newRange];
         updateRangesAndUI();
@@ -1170,11 +1190,58 @@ document.addEventListener("DOMContentLoaded", () => {
     leftControls.appendChild(fileInput);
   }
 
-  function updateRangesAndUI() {
+  // Persist + re-render without touching undo history. Used by undo/redo so
+  // restoring a snapshot doesn't record a new one.
+  function refreshUI() {
     saveRanges();
     updateCalendar();
     updateExportButtonState();
   }
+
+  // Commit a mutation: record the prior state for undo, drop any redo branch,
+  // then persist + re-render.
+  function updateRangesAndUI() {
+    history.past.push(history.baseline);
+    if (history.past.length > history.limit) {
+      history.past.shift();
+    }
+    history.future = [];
+    history.baseline = cloneRanges(savedRanges);
+    refreshUI();
+  }
+
+  function undo() {
+    if (history.past.length === 0) return;
+    history.future.push(cloneRanges(savedRanges));
+    savedRanges = history.past.pop();
+    history.baseline = cloneRanges(savedRanges);
+    refreshUI();
+  }
+
+  function redo() {
+    if (history.future.length === 0) return;
+    history.past.push(cloneRanges(savedRanges));
+    savedRanges = history.future.pop();
+    history.baseline = cloneRanges(savedRanges);
+    refreshUI();
+  }
+
+  // Keyboard undo/redo. Ignore while typing in a field so the browser's native
+  // text undo still works inside the label/note modal.
+  document.addEventListener("keydown", (e) => {
+    const tag = e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+    e.preventDefault();
+    if (e.shiftKey) {
+      redo();
+    } else {
+      undo();
+    }
+  });
+
+  // Seed the history baseline with whatever was loaded from storage.
+  history.baseline = cloneRanges(savedRanges);
 
   setupImportExport();
   updateCalendar();

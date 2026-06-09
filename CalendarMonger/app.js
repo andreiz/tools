@@ -4,20 +4,64 @@ document.addEventListener("DOMContentLoaded", () => {
   const todayButton = document.getElementById("todayButton");
   const colorPicker = window.ColorPicker;
 
+  // New-selection drag state (click-drag across empty days to create a range).
   let isDragging = false;
   let selectionStart = null;
   let selectionEnd = null;
   let firstCell = null;
   let savedRanges = [];
-  let isRangeDragging = false;
-  let draggedRangeId = null;
-  let draggedRangeStart = null;
-  let draggedRangeEnd = null;
-  let draggedRangeStartDay = null;
-  let pendingDragStart = null;
-  let pendingDragEnd = null;
-  let isRangeResizing = false;
-  let resizeEdge = null;
+
+  // Existing-range manipulation state. `mode` is null when idle, "move" while
+  // option-dragging a whole range, or "resize" while dragging a corner handle.
+  const rangeDrag = {
+    mode: null,
+    rangeId: null,
+    startDate: null,
+    endDate: null,
+    startDay: null,
+    resizeEdge: null,
+    pendingStart: null,
+    pendingEnd: null,
+  };
+
+  function resetRangeDrag() {
+    rangeDrag.mode = null;
+    rangeDrag.rangeId = null;
+    rangeDrag.startDate = null;
+    rangeDrag.endDate = null;
+    rangeDrag.startDay = null;
+    rangeDrag.resizeEdge = null;
+    rangeDrag.pendingStart = null;
+    rangeDrag.pendingEnd = null;
+  }
+
+  // Persist the pending move/resize if it still overlaps the visible month,
+  // then clear preview + state. Shared by the move and resize paths.
+  function commitRangeDrag() {
+    const { rangeId, pendingStart, pendingEnd } = rangeDrag;
+    if (rangeId && pendingStart && pendingEnd && isRangeOverlappingMonth(pendingStart, pendingEnd)) {
+      savedRanges = savedRanges.map(range => {
+        if (range.id !== rangeId) return range;
+        return {
+          ...range,
+          startDate: pendingStart.toISOString(),
+          endDate: pendingEnd.toISOString()
+        };
+      });
+      updateRangesAndUI();
+    }
+    clearDragPreview();
+    resetRangeDrag();
+  }
+
+  const SCHEMA_VERSION = 1;
+
+  function generateId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
 
   const DateRange = {
     create: function(startDate, endDate, label, color) {
@@ -26,11 +70,11 @@ document.addEventListener("DOMContentLoaded", () => {
       endDate.setHours(23, 59, 59, 999);
 
       return {
-        id: Date.now().toString(),
+        id: generateId(),
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         label: label,
-        color: color || this.getDistinctHueColor(startDate.toISOString(), endDate.toISOString())
+        color: color || this.getDistinctHueColor()
       };
     },
 
@@ -43,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return start1 <= end2 && start2 <= end1;
     },
 
-    getDistinctHueColor: function(startDate, endDate) {
+    getDistinctHueColor: function() {
       const selectedMonth = parseInt(monthPicker.value, 10);
       const selectedYear = parseInt(yearPicker.value, 10);
       return colorPicker.pickDistinctHueForMonth(savedRanges, selectedYear, selectedMonth);
@@ -54,7 +98,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadSavedRanges() {
     const saved = localStorage.getItem('calendarRanges');
     if (saved) {
-      savedRanges = JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
+        savedRanges = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('Failed to parse saved ranges; starting empty.', e);
+        savedRanges = [];
+      }
     }
   }
 
@@ -143,11 +193,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-    const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const duration = getRangeDurationDays(startDate, endDate);
 
     modal.innerHTML = `
       <div class="label-modal-content">
-        <h3>${modalTitle}</h3>
+        <h3></h3>
         <div class="date-controls">
           <div class="dates-container">
             <div class="date-row">
@@ -169,7 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span>days</span>
           </div>
         </div>
-        <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input" value="${initialLabel}">
+        <input type="text" id="rangeLabel" placeholder="Enter label" class="range-label-input">
         <div class="modal-buttons">
           <button id="saveLabelBtn" class="primary-button">Save</button>
           <button id="cancelLabelBtn" class="secondary-button">Cancel</button>
@@ -179,7 +229,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.body.appendChild(modal);
 
+    // Assign user-controlled text via the DOM (not innerHTML) to avoid injection.
+    modal.querySelector("h3").textContent = modalTitle;
+
     const input = modal.querySelector("#rangeLabel");
+    input.value = initialLabel;
     const durationInput = modal.querySelector("#rangeDuration");
     const saveBtn = modal.querySelector("#saveLabelBtn");
     const cancelBtn = modal.querySelector("#cancelLabelBtn");
@@ -324,14 +378,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setRangeHandleDragState(range, edge, startCell) {
-    isRangeResizing = true;
-    resizeEdge = edge;
-    draggedRangeId = range.id;
-    draggedRangeStartDay = parseInt(startCell.dataset.day, 10);
-    draggedRangeStart = new Date(range.startDate);
-    draggedRangeEnd = new Date(range.endDate);
-    pendingDragStart = null;
-    pendingDragEnd = null;
+    rangeDrag.mode = "resize";
+    rangeDrag.resizeEdge = edge;
+    rangeDrag.rangeId = range.id;
+    rangeDrag.startDay = parseInt(startCell.dataset.day, 10);
+    rangeDrag.startDate = new Date(range.startDate);
+    rangeDrag.endDate = new Date(range.endDate);
+    rangeDrag.pendingStart = null;
+    rangeDrag.pendingEnd = null;
   }
 
   function getCornerHitType(dayCell, clientX, clientY) {
@@ -355,17 +409,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const { selectedMonth, selectedYear } = getCurrentMonthBounds();
     if (!Number.isFinite(hoverDay)) return;
 
-    let newStart = new Date(draggedRangeStart);
-    let newEnd = new Date(draggedRangeEnd);
+    let newStart = new Date(rangeDrag.startDate);
+    let newEnd = new Date(rangeDrag.endDate);
 
-    if (resizeEdge === "start") {
+    if (rangeDrag.resizeEdge === "start") {
       newStart = new Date(selectedYear, selectedMonth, hoverDay);
       newStart.setHours(0, 0, 0, 0);
       if (newStart > newEnd) {
         newStart = new Date(newEnd);
         newStart.setHours(0, 0, 0, 0);
       }
-    } else if (resizeEdge === "end") {
+    } else if (rangeDrag.resizeEdge === "end") {
       newEnd = new Date(selectedYear, selectedMonth, hoverDay);
       newEnd.setHours(23, 59, 59, 999);
       if (newEnd < newStart) {
@@ -375,12 +429,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (isRangeOverlappingMonth(newStart, newEnd)) {
-      pendingDragStart = newStart;
-      pendingDragEnd = newEnd;
+      rangeDrag.pendingStart = newStart;
+      rangeDrag.pendingEnd = newEnd;
       updateDragPreview(newStart, newEnd);
     } else {
-      pendingDragStart = null;
-      pendingDragEnd = null;
+      rangeDrag.pendingStart = null;
+      rangeDrag.pendingEnd = null;
       clearDragPreview();
     }
   }
@@ -494,13 +548,13 @@ document.addEventListener("DOMContentLoaded", () => {
               return;
             }
 
-            isRangeDragging = true;
-            draggedRangeId = range.id;
-            draggedRangeStartDay = parseInt(parentCell.dataset.day, 10);
-            draggedRangeStart = new Date(range.startDate);
-            draggedRangeEnd = new Date(range.endDate);
-            pendingDragStart = null;
-            pendingDragEnd = null;
+            rangeDrag.mode = "move";
+            rangeDrag.rangeId = range.id;
+            rangeDrag.startDay = parseInt(parentCell.dataset.day, 10);
+            rangeDrag.startDate = new Date(range.startDate);
+            rangeDrag.endDate = new Date(range.endDate);
+            rangeDrag.pendingStart = null;
+            rangeDrag.pendingEnd = null;
           });
 
           label.appendChild(deleteBtn);
@@ -744,7 +798,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (!isRangeResizing) {
+    if (rangeDrag.mode !== "resize") {
       const targetDay = e.target.closest(".calendar-day");
       if (targetDay) {
         const edge = getCornerHitType(targetDay, e.clientX, e.clientY);
@@ -756,7 +810,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (!isRangeResizing && e.altKey) {
+    if (rangeDrag.mode !== "resize" && e.altKey) {
       const targetDay = e.target.closest(".calendar-day");
       if (!targetDay || !targetDay.dataset.day) {
         clearResizeHint();
@@ -767,7 +821,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (edge) {
         targetDay.classList.add("resize-hint");
       }
-    } else if (!isRangeResizing) {
+    } else if (rangeDrag.mode !== "resize") {
       clearResizeHint();
     }
   });
@@ -801,86 +855,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    if (isRangeResizing) {
-      isRangeResizing = false;
-      if (pendingDragStart && pendingDragEnd && draggedRangeId) {
-        if (isRangeOverlappingMonth(pendingDragStart, pendingDragEnd)) {
-          savedRanges = savedRanges.map(range => {
-            if (range.id !== draggedRangeId) return range;
-            return {
-              ...range,
-              startDate: pendingDragStart.toISOString(),
-              endDate: pendingDragEnd.toISOString()
-            };
-          });
-          updateRangesAndUI();
-        }
-      }
-      clearDragPreview();
-      draggedRangeId = null;
-      draggedRangeStart = null;
-      draggedRangeEnd = null;
-      draggedRangeStartDay = null;
-      pendingDragStart = null;
-      pendingDragEnd = null;
-      resizeEdge = null;
-    }
-
-    if (isRangeDragging) {
-      isRangeDragging = false;
-      if (pendingDragStart && pendingDragEnd && draggedRangeId) {
-        if (isRangeOverlappingMonth(pendingDragStart, pendingDragEnd)) {
-          savedRanges = savedRanges.map(range => {
-            if (range.id !== draggedRangeId) return range;
-            return {
-              ...range,
-              startDate: pendingDragStart.toISOString(),
-              endDate: pendingDragEnd.toISOString()
-            };
-          });
-          updateRangesAndUI();
-        }
-      }
-      clearDragPreview();
-      draggedRangeId = null;
-      draggedRangeStart = null;
-      draggedRangeEnd = null;
-      draggedRangeStartDay = null;
-      pendingDragStart = null;
-      pendingDragEnd = null;
+    if (rangeDrag.mode === "resize" || rangeDrag.mode === "move") {
+      commitRangeDrag();
     }
   });
 
   document.addEventListener("mousemove", (e) => {
-    if (!isRangeDragging) return;
+    if (rangeDrag.mode === null) return;
 
     const targetDay = e.target.closest("#selectedMonth .calendar-day");
     if (!targetDay || !targetDay.dataset.day) return;
-
     const hoverDay = parseInt(targetDay.dataset.day, 10);
-    if (!Number.isFinite(hoverDay) || draggedRangeStartDay === null) return;
+    if (!Number.isFinite(hoverDay)) return;
 
-    const deltaDays = hoverDay - draggedRangeStartDay;
-    const newStart = addDays(draggedRangeStart, deltaDays);
-    const newEnd = addDays(draggedRangeEnd, deltaDays);
+    if (rangeDrag.mode === "resize") {
+      updateRangeResizePreview(hoverDay);
+      return;
+    }
+
+    // mode === "move"
+    if (rangeDrag.startDay === null) return;
+    const deltaDays = hoverDay - rangeDrag.startDay;
+    const newStart = addDays(rangeDrag.startDate, deltaDays);
+    const newEnd = addDays(rangeDrag.endDate, deltaDays);
 
     if (isRangeOverlappingMonth(newStart, newEnd)) {
-      pendingDragStart = newStart;
-      pendingDragEnd = newEnd;
+      rangeDrag.pendingStart = newStart;
+      rangeDrag.pendingEnd = newEnd;
       updateDragPreview(newStart, newEnd);
     } else {
-      pendingDragStart = null;
-      pendingDragEnd = null;
+      rangeDrag.pendingStart = null;
+      rangeDrag.pendingEnd = null;
       clearDragPreview();
     }
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!isRangeResizing) return;
-    const targetDay = e.target.closest("#selectedMonth .calendar-day");
-    if (!targetDay || !targetDay.dataset.day) return;
-    const hoverDay = parseInt(targetDay.dataset.day, 10);
-    updateRangeResizePreview(hoverDay);
   });
 
   function updateSelectionHighlights() {
@@ -907,7 +914,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function exportRanges() {
-    const dataStr = JSON.stringify(savedRanges, null, 2);
+    const dataStr = JSON.stringify({ version: SCHEMA_VERSION, ranges: savedRanges }, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
 
     try {
@@ -957,29 +964,34 @@ document.addEventListener("DOMContentLoaded", () => {
     const reader = new FileReader();
     reader.onload = function(e) {
       try {
-        const importedRanges = JSON.parse(e.target.result);
+        const parsed = JSON.parse(e.target.result);
 
+        // Accept both the legacy bare-array format and the versioned
+        // { version, ranges } wrapper.
+        const importedRanges = Array.isArray(parsed) ? parsed : parsed && parsed.ranges;
         if (!Array.isArray(importedRanges)) {
-          throw new Error('Invalid format: Expected an array');
+          throw new Error('Invalid format: expected an array of ranges');
         }
 
-        // Validate each range object
-        importedRanges.forEach(range => {
-          if (!range.id || !range.startDate || !range.endDate || !range.label || !range.color) {
+        // Validate each range object, then regenerate IDs so importing the
+        // same file twice can't create colliding ids.
+        const sanitized = importedRanges.map(range => {
+          if (!range || !range.startDate || !range.endDate || !range.label || !range.color) {
             throw new Error('Invalid range format');
           }
-          // Validate dates
-          new Date(range.startDate);
-          new Date(range.endDate);
+          if (isNaN(new Date(range.startDate)) || isNaN(new Date(range.endDate))) {
+            throw new Error('Invalid date in range');
+          }
+          return { ...range, id: generateId() };
         });
 
-        const importCount = importedRanges.length;
+        const importCount = sanitized.length;
         if (importCount === 0) {
           alert('No ranges found in file');
           return;
         }
 
-        savedRanges = [...savedRanges, ...importedRanges];
+        savedRanges = [...savedRanges, ...sanitized];
         updateRangesAndUI();
 
         alert(`Successfully imported ${importCount} range${importCount === 1 ? '' : 's'}`);
@@ -1064,13 +1076,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Function to set up the import/export UI
   function setupImportExport() {
-    // Find the top controls container
-    const controlsContainer = document.querySelector('.flex.justify-end.items-center.mb-4');
-    controlsContainer.className = 'flex justify-between items-center mb-4';
-
-    // Create left side container for import/export/clear
-    const leftControls = document.createElement('div');
-    leftControls.className = 'flex gap-2';
+    // Left side of the toolbar is reserved in index.html for these controls.
+    const leftControls = document.getElementById('toolbarLeft');
 
     // Create import button
     const importButton = document.createElement('button');
@@ -1156,26 +1163,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     clearBtn.addEventListener('click', showClearConfirmation);
 
-    // Create right side container for existing controls
-    const rightControls = document.createElement('div');
-    rightControls.className = 'flex gap-2';
-
-    // Move existing month/year controls to right side
-    const existingControls = Array.from(controlsContainer.children);
-    existingControls.forEach(control => {
-      rightControls.appendChild(control);
-    });
-
-    // Add all buttons to left controls
+    // Add all buttons to the left side of the toolbar.
     leftControls.appendChild(importButton);
     leftControls.appendChild(exportButton);
     leftControls.appendChild(clearBtn);
     leftControls.appendChild(fileInput);
-
-    // Clear and rebuild controls container
-    controlsContainer.innerHTML = '';
-    controlsContainer.appendChild(leftControls);
-    controlsContainer.appendChild(rightControls);
   }
 
   function updateRangesAndUI() {

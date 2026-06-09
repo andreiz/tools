@@ -87,12 +87,19 @@ def main():
             page.click("#saveLabelBtn")
             expect(page.locator(".range-label", has_text="Playwright Range")).to_have_count(1)
 
-            # Edit the range to add a note, then reopen to confirm it persisted.
+            # Edit the range: add a note and move the start date earlier.
             page.locator('.range-label:has-text("Playwright Range")').dblclick()
             page.locator("#rangeNote").fill("Booked via Playwright")
+            start_value = page.locator("#rangeStart").input_value()
+            assert start_value.endswith("-01"), f"Start did not default to day 1: {start_value}"
+            new_start = start_value[:-2] + "03"  # move start to the 3rd
+            page.locator("#rangeStart").fill(new_start)
             page.click("#saveLabelBtn")
+
+            # Reopen and confirm both the note and the edited start persisted.
             page.locator('.range-label:has-text("Playwright Range")').dblclick()
             expect(page.locator("#rangeNote")).to_have_value("Booked via Playwright")
+            expect(page.locator("#rangeStart")).to_have_value(new_start)
             page.click("#cancelLabelBtn")
 
             # Undo (Cmd/Ctrl+Z) should remove the range entirely.

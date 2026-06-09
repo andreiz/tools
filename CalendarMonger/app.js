@@ -215,7 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="dates-container">
             <div class="date-row">
               <div class="date-label">Start:</div>
-              <div class="date-value">${startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+              <input type="date" id="rangeStart" class="date-input">
             </div>
             <div class="date-row">
               <div class="date-label">End:</div>
@@ -250,16 +250,18 @@ document.addEventListener("DOMContentLoaded", () => {
     input.value = initialLabel;
     const noteInput = modal.querySelector("#rangeNote");
     noteInput.value = initialNote;
+    const startInput = modal.querySelector("#rangeStart");
+    startInput.value = toDateInputValue(startDate);
     const durationInput = modal.querySelector("#rangeDuration");
     const saveBtn = modal.querySelector("#saveLabelBtn");
     const cancelBtn = modal.querySelector("#cancelLabelBtn");
     const endDateValue = modal.querySelector(".date-row:nth-child(2) .date-value");
 
-    // Handle duration changes
-    durationInput.addEventListener("input", () => {
-      const newDuration = parseInt(durationInput.value) || 1;
+    // End is derived from Start + Duration; recompute it whenever either changes.
+    const syncEndFromStartAndDuration = () => {
+      const days = parseInt(durationInput.value, 10) || 1;
       const newEndDate = new Date(startDate);
-      newEndDate.setDate(startDate.getDate() + newDuration - 1);
+      newEndDate.setDate(startDate.getDate() + days - 1);
       newEndDate.setHours(23, 59, 59, 999);
       endDate.setTime(newEndDate.getTime());
 
@@ -267,7 +269,20 @@ document.addEventListener("DOMContentLoaded", () => {
         month: 'long',
         day: 'numeric'
       });
+    };
+
+    startInput.addEventListener("change", () => {
+      const newStart = parseDateInputValue(startInput.value);
+      if (!newStart) {
+        // Ignore an empty/invalid value and restore the last good date.
+        startInput.value = toDateInputValue(startDate);
+        return;
+      }
+      startDate.setTime(newStart.getTime());
+      syncEndFromStartAndDuration();
     });
+
+    durationInput.addEventListener("input", syncEndFromStartAndDuration);
 
     return new Promise((resolve, reject) => {
       saveBtn.addEventListener("click", () => {
@@ -329,6 +344,23 @@ document.addEventListener("DOMContentLoaded", () => {
   function isRangeOverlappingMonth(startDate, endDate) {
     const { monthStart, monthEnd } = getCurrentMonthBounds();
     return startDate <= monthEnd && endDate >= monthStart;
+  }
+
+  // Format/parse a Date as a local YYYY-MM-DD string for <input type="date">.
+  // Avoids the UTC shift you'd get from toISOString()/new Date("YYYY-MM-DD").
+  function toDateInputValue(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function parseDateInputValue(value) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!parts) return null;
+    const date = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
 
   function addDays(date, days) {

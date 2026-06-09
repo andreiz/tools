@@ -360,6 +360,15 @@ html {
   text-align: center;
 }
 
+.date-input {
+  flex: 1;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .label-modal-content {
   width: 400px;
 }

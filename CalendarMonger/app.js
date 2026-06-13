@@ -491,6 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Create a shared function for applying range styling
   function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
+    const isMultiRange = matchingRanges.length > 1;
     matchingRanges.forEach(range => addRangeIdToCell(dayCell, range.id));
     if (matchingRanges.length > 1) {
       const count = matchingRanges.length;
@@ -534,7 +535,12 @@ document.addEventListener("DOMContentLoaded", () => {
           label.className = "range-label";
           const durationDays = getRangeDurationDays(range.startDate, range.endDate);
           label.textContent = range.label;
-          label.style.backgroundColor = range.color;
+          // On single-range days the label blends seamlessly with the cell;
+          // on multi-range days use a translucent chip so the even color
+          // bands stay visible behind the label.
+          label.style.backgroundColor = isMultiRange
+            ? "rgba(255, 255, 255, 0.75)"
+            : range.color;
           label.setAttribute('data-range-id', range.id);
           label.setAttribute('title', 'Option-drag to move • Double-click to edit');
 

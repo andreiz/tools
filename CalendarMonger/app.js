@@ -537,15 +537,13 @@ document.addEventListener("DOMContentLoaded", () => {
           label.className = "range-label";
           const durationDays = getRangeDurationDays(range.startDate, range.endDate);
           label.textContent = range.label;
-          // On single-range days the label blends seamlessly with the cell.
-          // On multi-range days, anchor the label to the top-left corner of
-          // its own color band with a translucent chip so the even bands
-          // stay visible.
+          // The label uses its own range color so it blends into its band.
+          // On multi-range days it is anchored to the top-left corner of
+          // that band; on single-range days it sits in the flex stack.
+          label.style.backgroundColor = range.color;
           if (isMultiRange) {
             label.classList.add("range-label-banded");
             label.style.top = `calc(${bandTopPercent}% + 2px)`;
-          } else {
-            label.style.backgroundColor = range.color;
           }
           label.setAttribute('data-range-id', range.id);
           label.setAttribute('title', 'Option-drag to move • Double-click to edit');

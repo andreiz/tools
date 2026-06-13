@@ -133,6 +133,28 @@ html {
   z-index: 1;
 }
 
+/* Band-aligned fold triangles for ranges on multi-range days. */
+.range-corner {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.range-corner-start {
+  left: 0;
+  border-top: 8px solid #666;
+  border-right: 8px solid transparent;
+}
+
+.range-corner-end {
+  right: 0;
+  border-bottom: 8px solid #666;
+  border-left: 8px solid transparent;
+}
+
 .range-duration-inline {
   position: absolute;
   right: 24px;

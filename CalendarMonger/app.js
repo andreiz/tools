@@ -526,7 +526,16 @@ document.addEventListener("DOMContentLoaded", () => {
                    endDate.getFullYear() === year;
 
       if (isStart) {
-        dayCell.classList.add('range-start');
+        if (isMultiRange && !isSmallMonth) {
+          // Cell-level fold triangle can't align to a band, so place a
+          // band-positioned triangle at the top-left of this range's band.
+          const corner = document.createElement("div");
+          corner.className = "range-corner range-corner-start";
+          corner.style.top = `${bandTopPercent}%`;
+          dayCell.appendChild(corner);
+        } else {
+          dayCell.classList.add('range-start');
+        }
 
         // Add label for range start in both main and small months
         const labelsContainer = dayCell.querySelector(".day-labels");
@@ -644,7 +653,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (isEnd) {
-        dayCell.classList.add('range-end');
+        if (isMultiRange && !isSmallMonth) {
+          const corner = document.createElement("div");
+          corner.className = "range-corner range-corner-end";
+          const bandBottomPercent =
+            ((matchingRanges.length - rangeIndex - 1) / matchingRanges.length) * 100;
+          corner.style.bottom = `${bandBottomPercent}%`;
+          dayCell.appendChild(corner);
+        } else {
+          dayCell.classList.add('range-end');
+        }
       }
 
       // Add continuation indicators

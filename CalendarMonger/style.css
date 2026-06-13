@@ -121,6 +121,16 @@ html {
   line-height: 1.2; /* Better spacing for wrapped text */
 }
 
+/* Multi-range day: anchor each label to the top-left of its color band. */
+.range-label-banded {
+  position: absolute;
+  left: 4px;
+  width: auto;
+  max-width: calc(100% - 8px);
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 4;
+}
+
 .range-duration {
   position: absolute;
   top: 2px;

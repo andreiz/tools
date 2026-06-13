@@ -509,9 +509,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const month = parseInt(dayCell.dataset.month);
     const day = parseInt(dayCell.dataset.day);
 
-    matchingRanges.forEach(range => {
+    matchingRanges.forEach((range, rangeIndex) => {
       const startDate = new Date(range.startDate);
       const endDate = new Date(range.endDate);
+      // Top of this range's color band as a percentage of the cell height.
+      const bandTopPercent = isMultiRange ? (rangeIndex / matchingRanges.length) * 100 : 0;
 
       const isStart = startDate.getDate() === day &&
                      startDate.getMonth() === month &&
@@ -535,12 +537,16 @@ document.addEventListener("DOMContentLoaded", () => {
           label.className = "range-label";
           const durationDays = getRangeDurationDays(range.startDate, range.endDate);
           label.textContent = range.label;
-          // On single-range days the label blends seamlessly with the cell;
-          // on multi-range days use a translucent chip so the even color
-          // bands stay visible behind the label.
-          label.style.backgroundColor = isMultiRange
-            ? "rgba(255, 255, 255, 0.75)"
-            : range.color;
+          // On single-range days the label blends seamlessly with the cell.
+          // On multi-range days, anchor the label to the top-left corner of
+          // its own color band with a translucent chip so the even bands
+          // stay visible.
+          if (isMultiRange) {
+            label.classList.add("range-label-banded");
+            label.style.top = `calc(${bandTopPercent}% + 2px)`;
+          } else {
+            label.style.backgroundColor = range.color;
+          }
           label.setAttribute('data-range-id', range.id);
           label.setAttribute('title', 'Option-drag to move • Double-click to edit');
 
@@ -621,12 +627,18 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           label.appendChild(deleteBtn);
-          labelsContainer.appendChild(label);
+          if (isMultiRange) {
+            // Banded labels are positioned against the cell, not stacked
+            // in the flex container, so they line up with their band.
+            dayCell.appendChild(label);
+          } else {
+            labelsContainer.appendChild(label);
 
-          const durationBadge = document.createElement("span");
-          durationBadge.className = "range-duration";
-          durationBadge.textContent = `${durationDays}d`;
-          dayCell.appendChild(durationBadge);
+            const durationBadge = document.createElement("span");
+            durationBadge.className = "range-duration";
+            durationBadge.textContent = `${durationDays}d`;
+            dayCell.appendChild(durationBadge);
+          }
         }
       }
 

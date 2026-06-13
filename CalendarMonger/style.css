@@ -131,6 +131,18 @@ html {
   z-index: 1;
 }
 
+.range-duration-inline {
+  display: inline-block;
+  font-size: 0.65em;
+  font-weight: 600;
+  color: rgba(55, 65, 81, 0.8);
+  background: rgba(255, 255, 255, 0.65);
+  padding: 1px 4px;
+  margin-right: 5px;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+
 .range-duration {
   position: absolute;
   top: 2px;

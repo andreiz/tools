@@ -536,7 +536,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const label = document.createElement("div");
           label.className = "range-label";
           const durationDays = getRangeDurationDays(range.startDate, range.endDate);
-          label.textContent = range.label;
           // The label uses its own range color so it blends into its band.
           // On multi-range days it is anchored to the top-left corner of
           // that band; on single-range days it sits in the flex stack.
@@ -544,6 +543,15 @@ document.addEventListener("DOMContentLoaded", () => {
           if (isMultiRange) {
             label.classList.add("range-label-banded");
             label.style.top = `calc(${bandTopPercent}% + 2px)`;
+            // Thin bands have no room for the corner badge, so show the
+            // duration as a small inline pill at the start of the label.
+            const durationInline = document.createElement("span");
+            durationInline.className = "range-duration-inline";
+            durationInline.textContent = `${durationDays}d`;
+            label.appendChild(durationInline);
+            label.appendChild(document.createTextNode(range.label));
+          } else {
+            label.textContent = range.label;
           }
           label.setAttribute('data-range-id', range.id);
           label.setAttribute('title', 'Option-drag to move • Double-click to edit');

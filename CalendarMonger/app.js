@@ -536,23 +536,20 @@ document.addEventListener("DOMContentLoaded", () => {
           const label = document.createElement("div");
           label.className = "range-label";
           const durationDays = getRangeDurationDays(range.startDate, range.endDate);
-          // The label uses its own range color so it blends into its band.
-          // On multi-range days it is anchored to the top-left corner of
-          // that band; on single-range days it sits in the flex stack.
+          // The label uses its own range color so it blends into its band
+          // (or cell). On multi-range days it is anchored to the top-left
+          // corner of its band; otherwise it sits in the flex stack.
           label.style.backgroundColor = range.color;
+          label.textContent = range.label;
           if (isMultiRange) {
             label.classList.add("range-label-banded");
             label.style.top = `calc(${bandTopPercent}% + 2px)`;
-            // Thin bands have no room for the corner badge, so show the
-            // duration as a small inline pill at the start of the label.
-            const durationInline = document.createElement("span");
-            durationInline.className = "range-duration-inline";
-            durationInline.textContent = `${durationDays}d`;
-            label.appendChild(durationInline);
-            label.appendChild(document.createTextNode(range.label));
-          } else {
-            label.textContent = range.label;
           }
+          // Duration pill, revealed on hover (positioned by CSS).
+          const durationPill = document.createElement("span");
+          durationPill.className = "range-duration-inline";
+          durationPill.textContent = `${durationDays}d`;
+          label.appendChild(durationPill);
           label.setAttribute('data-range-id', range.id);
           label.setAttribute('title', 'Option-drag to move • Double-click to edit');
 
@@ -639,11 +636,6 @@ document.addEventListener("DOMContentLoaded", () => {
             dayCell.appendChild(label);
           } else {
             labelsContainer.appendChild(label);
-
-            const durationBadge = document.createElement("span");
-            durationBadge.className = "range-duration";
-            durationBadge.textContent = `${durationDays}d`;
-            dayCell.appendChild(durationBadge);
           }
         }
       }

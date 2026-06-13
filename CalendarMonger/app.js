@@ -419,6 +419,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setRangeHover(rangeId, isActive) {
+    // Don't show the range hover outline while a selection or range drag
+    // is in progress — it competes with the drag-selection border.
+    if (isActive && (isDragging || rangeDrag.mode)) return;
     document.querySelectorAll("#selectedMonth .calendar-day").forEach((dayCell) => {
       const ids = dayCell.dataset.rangeIds ? dayCell.dataset.rangeIds.split(",") : [];
       if (ids.includes(rangeId)) {

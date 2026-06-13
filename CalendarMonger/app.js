@@ -493,8 +493,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyRangeStyling(dayCell, matchingRanges, isSmallMonth = false) {
     matchingRanges.forEach(range => addRangeIdToCell(dayCell, range.id));
     if (matchingRanges.length > 1) {
-      const gradientColors = matchingRanges.map(r => r.color);
-      dayCell.style.background = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
+      const count = matchingRanges.length;
+      const bands = matchingRanges.map((range, i) => {
+        const start = (i / count) * 100;
+        const end = ((i + 1) / count) * 100;
+        return `${range.color} ${start}% ${end}%`;
+      });
+      dayCell.style.background = `linear-gradient(to bottom, ${bands.join(', ')})`;
     } else if (matchingRanges.length === 1) {
       dayCell.style.backgroundColor = matchingRanges[0].color;
     }
